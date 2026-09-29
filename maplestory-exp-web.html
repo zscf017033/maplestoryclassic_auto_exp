@@ -112,10 +112,13 @@ video{width:100%;max-height:260px;background:#000;border-radius:8px;margin-top:1
 .dbg canvas{image-rendering:pixelated;background:#222;border:1px solid var(--bd);max-width:100%;height:32px}
 code{background:rgba(127,127,127,.15);padding:1px 5px;border-radius:4px;font-size:13px}
 ul.tips{margin:6px 0 0;padding-left:20px;color:var(--mut);font-size:13.5px}
-/* 網頁內浮窗：可拖曳標題列移動，右下角拖曳調整大小 */
-#floatPanel{position:fixed;right:24px;bottom:24px;width:300px;height:214px;min-width:112px;min-height:76px;
-  resize:both;overflow:hidden;z-index:40;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
-#floatPanel.hide{display:none}
+/* 經驗統計 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:4px}
+.stat{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;background:rgba(127,127,127,.06)}
+.stat .k{font-size:12.5px;color:var(--mut)}
+.stat .v{font-size:20px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;word-break:break-all}
+.stat .s{font-size:12px;color:var(--mut);margin-top:2px;min-height:1.2em}
+.stat.hl .v{color:var(--ac)}
 /* 手動校正對話框 */
 dialog#calDlg{border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);padding:16px;max-width:96vw}
 dialog::backdrop{background:rgba(0,0,0,.5)}
@@ -169,14 +172,25 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <h2><b>3</b>小浮窗</h2>
     <div class="row">
       <button class="b pri" id="btnPip">開啟置頂小浮窗</button>
-      <button class="b" id="btnPanel">隱藏網頁內浮窗</button>
     </div>
     <p class="mut" id="pipHint" style="margin:8px 0 0"></p>
     <p class="mut" style="margin:4px 0 0">浮窗可以直接拖曳視窗邊緣調整大小，內容會跟著等比縮放；浮窗上的「＋」是設定，「重置」清除統計。</p>
   </section>
 
   <section class="card">
-    <h2><b>4</b>位置校正與偵測狀態</h2>
+    <h2><b>4</b>經驗統計</h2>
+    <div class="stats">
+      <div class="stat"><div class="k">平均每十分經驗</div><div class="v" id="stAvg10">—</div><div class="s" id="stAvg10S"></div></div>
+      <div class="stat"><div class="k">平均一小時經驗</div><div class="v" id="stAvgHr">—</div><div class="s" id="stAvgHrS"></div></div>
+      <div class="stat hl"><div class="k">預計升等時間</div><div class="v" id="stEta">—</div><div class="s" id="stEtaS"></div></div>
+      <div class="stat"><div class="k">累積打怪經驗</div><div class="v" id="stTotal">—</div><div class="s" id="stTotalS"></div></div>
+      <div class="stat"><div class="k">總練功時間</div><div class="v" id="stTime">—</div><div class="s" id="stTimeS"></div></div>
+    </div>
+    <p class="mut" style="margin:10px 0 0">依「開始追蹤後的實際練功時間」平均計算（閒置時間不計入）；按浮窗上的「重置」會清除統計。</p>
+  </section>
+
+  <section class="card">
+    <h2><b>5</b>位置校正與偵測狀態</h2>
     <div class="row">
       <button class="b" id="btnManual">手動校正位置…</button>
       <button class="b" id="btnAuto">改回自動偵測</button>
@@ -189,8 +203,6 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     </div>
   </section>
 </main>
-
-<div id="floatPanel"></div>
 
 <dialog id="calDlg">
   <p id="calIns"></p>
@@ -473,8 +485,9 @@ class Tracker {
   reset() {
     // lvl/exp：最近一次「可信」的讀數；total：從開始追蹤累積的經驗增量（不依賴等級經驗表，升等時才不會算錯）
     this.lvl = -1; this.exp = 0; this.total = 0; this.rejects = 0;
-    this.lastGain = 0; this.sessionStart = -1; this.hist = []; this.lastHistUpdate = 0; this.lastData = null;
+    this.lastGain = 0; this.activeSec = 0; this.lastTick = 0; this.stats = null; this.sessionStart = -1; this.hist = []; this.lastHistUpdate = 0; this.lastData = null;
     this.lines = { player: '統計已重置', rate: '十分鐘經驗：計算中...', eta: '距離升等還要：計算中...', active: '持續練等：00:00' };
+    if (typeof renderStats === 'function') renderStats();
     if (this.onReset) this.onReset();      // 同時清掉辨識快取，強制重新讀一次畫面
     this.onChange();
   }
@@ -533,11 +546,24 @@ class Tracker {
         } else { rateText = formatExp(0, EXP_ROUNDING_DIGITS); ratePct = 0; eta = '距離升等還要：無法估算'; }
       } else { rateText = '計算中...'; eta = '距離升等還要：計算中...'; }
     }
+    const dt = this.lastTick ? Math.min(now - this.lastTick, 5) : 0; this.lastTick = now;
+    if (!isIdle) this.activeSec += dt;
+    {
+      const act = this.activeSec, rq = EXP_REQ[this.lvl] || req;
+      let avg10 = null, avgHr = null, etaSec = null;
+      if (act >= 10 && this.total > 0) {
+        const perSec = this.total / act;
+        avg10 = perSec * 600; avgHr = perSec * 3600;
+        etaSec = Math.max(0, rq - this.exp) / perSec;
+      }
+      this.stats = { avg10, avgHr, etaSec, total: this.total, act, pct10: avg10 !== null && rq > 0 ? avg10 * 100 / rq : null, pctHr: avgHr !== null && rq > 0 ? avgHr * 100 / rq : null, pctTotal: rq > 0 ? this.total * 100 / rq : null, idle: isIdle };
+    }
     const S = Settings.d, pct = S.show_percent;
     if (S.show_player_info) this.lines.player = `LV: ${String(level).padStart(3, '0')} EXP: ${fmtInt(experience)}` + (pct ? ` [${percent.toFixed(2)}%]` : '');
     if (S.show_ten_min_exp) this.lines.rate = `十分鐘經驗：${rateText}` + (pct ? ` [${ratePct.toFixed(2)}%]` : '');
     if (S.show_level_estimate) this.lines.eta = eta;
     if (S.show_active_time) this.lines.active = active;
+    if (typeof renderStats === 'function') renderStats();
     this.onChange();
   }
 }
@@ -614,6 +640,7 @@ class Overlay {
     win.addEventListener('resize', () => this.layout());
     this.layout();
   }
+  unmount() { if (this.ro) { this.ro.disconnect(); this.ro = null; } this.host = null; this.win = window; }
   layout() {
     if (!this.host) return;
     const W = this.host.clientWidth, H = this.host.clientHeight; if (!W || !H) return;
@@ -787,25 +814,19 @@ function applyManualFromSettings() {
 function updateCalState() { const S = Settings.d; $('#calState').textContent = S.manual_lv_box && S.manual_exp_box ? '目前使用：手動校正位置' : '目前使用：自動偵測位置'; }
 
 // ===================================================================================
-// 置頂小浮窗（Document Picture-in-Picture）與網頁內浮窗
+// 置頂小浮窗（Document Picture-in-Picture）
 // ===================================================================================
-const floatPanel = $('#floatPanel');
 function pipSupported() { return 'documentPictureInPicture' in window; }
 function savedPip() { try { return JSON.parse(localStorage.getItem(PIP_KEY) || 'null'); } catch (e) { return null; } }
 
-function setPanelSize(k) {
-  const w = Math.round(overlay.w0() * k), h = Math.round(overlay.h0() * k);
-  floatPanel.style.width = w + 'px'; floatPanel.style.height = h + 'px';
-}
 function requestScale(k) {                       // 設定裡的「UI 比例」→ 調整視窗大小
   programmaticUntil = performance.now() + 600;
   if (pipWin) { try { pipWin.resizeTo(Math.round(overlay.w0() * k) + (pipWin.outerWidth - pipWin.innerWidth), Math.round(overlay.h0() * k) + (pipWin.outerHeight - pipWin.innerHeight)); } catch (e) {} }
-  else setPanelSize(k);
 }
 
 async function openPip() {
   showMsg('');
-  if (!pipSupported()) { showMsg('此瀏覽器不支援置頂小浮窗（需要 Chrome / Edge 116 以上）。已改用網頁內浮窗。'); floatPanel.classList.remove('hide'); return; }
+  if (!pipSupported()) { showMsg('此瀏覽器不支援置頂小浮窗（需要 Chrome / Edge 116 以上）。'); return; }
   if (pipWin) { pipWin.focus(); return; }
   const sv = savedPip(), k = Settings.d.ui_scale / 100;
   let w = sv && sv.w ? sv.w : Math.round(overlay.w0() * k), h = sv && sv.h ? sv.h : Math.round(overlay.h0() * k);
@@ -815,33 +836,17 @@ async function openPip() {
   const st = doc.createElement('style'); st.textContent = $('#ovl-css').textContent + 'html,body{margin:0;height:100%;overflow:hidden;background:#fff}body{position:relative}';
   doc.head.appendChild(st);
   overlay.mount(doc.body, pipWin);
-  floatPanel.classList.add('hide'); updatePipUi();
+  updatePipUi();
   const w0 = pipWin;
   pipWin.addEventListener('pagehide', () => {
     if (pipWin !== w0) return; pipWin = null;
-    overlay.mount(floatPanel, window); floatPanel.classList.remove('hide'); updatePipUi();
+    overlay.unmount(); updatePipUi();
   });
 }
 function updatePipUi() {
   $('#btnPip').textContent = pipWin ? '關閉置頂小浮窗' : '開啟置頂小浮窗';
-  $('#btnPanel').textContent = floatPanel.classList.contains('hide') ? '顯示網頁內浮窗' : '隱藏網頁內浮窗';
-  $('#btnPanel').disabled = !!pipWin;
-  $('#pipHint').textContent = pipSupported() ? '置頂小浮窗會浮在遊戲視窗上方（需視窗／無邊框模式）；可拖曳視窗邊緣調整大小。' : '此瀏覽器不支援置頂浮窗，只能使用網頁內浮窗（建議改用 Chrome / Edge 116+）。';
+  $('#pipHint').textContent = pipSupported() ? '置頂小浮窗會浮在遊戲視窗上方（需視窗／無邊框模式）；可拖曳視窗邊緣調整大小。' : '此瀏覽器不支援置頂浮窗（建議改用 Chrome / Edge 116+）。';
 }
-
-// 網頁內浮窗拖曳
-(() => {
-  let drag = null;
-  floatPanel.addEventListener('pointerdown', e => {
-    if (!e.target.closest('.tb') || e.target.closest('button') || pipWin) return;
-    const r = floatPanel.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
-    floatPanel.style.left = r.left + 'px'; floatPanel.style.top = r.top + 'px'; floatPanel.style.right = 'auto'; floatPanel.style.bottom = 'auto';
-    floatPanel.setPointerCapture(e.pointerId); e.preventDefault();
-  });
-  floatPanel.addEventListener('pointermove', e => { if (!drag) return;
-    floatPanel.style.left = clamp(e.clientX - drag.dx, 0, innerWidth - 60) + 'px'; floatPanel.style.top = clamp(e.clientY - drag.dy, 0, innerHeight - 30) + 'px'; });
-  floatPanel.addEventListener('pointerup', () => { drag = null; });
-})();
 
 // ===================================================================================
 // 手動校正（對應 CalibrationDialog）
@@ -894,6 +899,33 @@ function openCalibration() {
 // ===================================================================================
 // 初始化
 // ===================================================================================
+
+// ===================================================================================
+// 網頁內經驗統計面板
+// ===================================================================================
+function fmtDur(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  if (d > 0) return `${d}天${h}小時${m}分`;
+  if (h > 0) return `${h}小時${m}分${pad2(s)}秒`;
+  return `${m}分${pad2(s)}秒`;
+}
+function renderStats() {
+  const st = tracker && tracker.stats, set = (id, t) => { const el = document.getElementById(id); if (el && el.textContent !== t) el.textContent = t; };
+  const pc = p => p === null || p === undefined ? '' : `約 ${p.toFixed(2)}% 等級經驗`;
+  if (!st) {
+    ['stAvg10','stAvgHr','stEta','stTotal','stTime'].forEach(i => { set(i, '—'); set(i + 'S', ''); });
+    return;
+  }
+  set('stAvg10', st.avg10 === null ? '計算中...' : fmtInt(st.avg10)); set('stAvg10S', pc(st.pct10));
+  set('stAvgHr', st.avgHr === null ? '計算中...' : fmtInt(st.avgHr)); set('stAvgHrS', pc(st.pctHr));
+  if (st.etaSec === null) { set('stEta', '計算中...'); set('stEtaS', ''); }
+  else if (st.etaSec < 60) { set('stEta', '不到1分鐘'); set('stEtaS', finishTimeText(st.etaSec).replace(/[()]/g, '')); }
+  else { set('stEta', fmtDur(st.etaSec).replace(/\d+秒$/, '')); set('stEtaS', st.etaSec < 86400 ? finishTimeText(st.etaSec).replace(/[()]/g, '') : ''); }
+  set('stTotal', fmtInt(st.total)); set('stTotalS', pc(st.pctTotal));
+  set('stTime', fmtDur(st.act)); set('stTimeS', st.idle ? '目前閒置中（暫停計時）' : '');
+}
+
 async function boot() {
   Settings.load();
   tracker = new Tracker(() => overlay && overlay.render());
@@ -905,7 +937,6 @@ async function boot() {
     viewChanged: (v, k) => {              // 進出設定畫面時，視窗高度跟著內容調整（維持目前縮放）
       programmaticUntil = performance.now() + 600;
       if (pipWin) { try { pipWin.resizeTo(Math.round(overlay.w0() * k) + (pipWin.outerWidth - pipWin.innerWidth), Math.round(overlay.h0() * k) + (pipWin.outerHeight - pipWin.innerHeight)); } catch (e) {} }
-      else setPanelSize(k);
     },
     scaled: (k, W, H) => {
       if (performance.now() < programmaticUntil) return;
@@ -913,15 +944,13 @@ async function boot() {
       if (pct !== Settings.d.ui_scale) { Settings.d.ui_scale = pct; Settings.save(); overlay.render(); }
       if (pipWin) { try { localStorage.setItem(PIP_KEY, JSON.stringify({ w: pipWin.innerWidth, h: pipWin.innerHeight })); } catch (e) {} }
     },
-    close: () => { if (pipWin) pipWin.close(); else { floatPanel.classList.add('hide'); updatePipUi(); } },
+    close: () => { if (pipWin) pipWin.close(); },
     reset: () => tracker.reset(),
     manual: () => openCalibration(),
     auto: () => { if (Settings.d.manual_lv_box || Settings.d.manual_exp_box) { Settings.d.manual_lv_box = Settings.d.manual_exp_box = null; Settings.save(); applyManualFromSettings(); overlay.render(); } },
   });
   tracker.lines.player = '請先分享遊戲畫面'; 
-  setPanelSize(Settings.d.ui_scale / 100);
-  overlay.mount(floatPanel, window);
-  overlay.render(); updatePipUi(); updateCalState();
+  overlay.render(); updatePipUi(); updateCalState(); renderStats();
 
   // 時鐘用 Worker 計時：分頁在背景（遊戲在前景）時瀏覽器不會把它降速
   try { const cw = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),1000)'], { type: 'text/javascript' }))); cw.onmessage = () => overlay.updateClock(); }
@@ -929,7 +958,6 @@ async function boot() {
 
   $('#btnStart').onclick = startCapture; $('#btnStop').onclick = () => stopCapture();
   $('#btnPip').onclick = () => pipWin ? pipWin.close() : openPip();
-  $('#btnPanel').onclick = () => { floatPanel.classList.toggle('hide'); updatePipUi(); };
   $('#btnManual').onclick = openCalibration; $('#btnAuto').onclick = () => overlay.h.auto();
   $('#btnRedownload').onclick = () => initModel(true);
   $('#fileModel').onchange = e => { handleModelFiles([...e.target.files]); e.target.value = ''; };
