@@ -748,7 +748,11 @@ class Tracker {
 class Overlay {
   constructor(handlers) {
     this.h = handlers; this.view = 'main'; this.win = window; this.host = null; this.ro = null; this.k = 1;
-    const r = this.root = document.createElement('div'); r.className = 'ovl'; r.dataset.view = 'main';
+    this.build(document);
+    this.render();
+  }
+  build(doc) {   // 每次掛到新視窗時都重建 DOM 與事件，避免跨 document 搬移後事件失效
+    const r = this.root = doc.createElement('div'); r.className = 'ovl'; r.dataset.view = this.view;
     r.innerHTML = `
       <div class="fr"><i class="nw"></i><i class="n"></i><i class="ne"></i><i class="w"></i><i class="c"></i><i class="e"></i><i class="sw"></i><i class="s"></i><i class="se"></i></div>
       <div class="tb"><span class="t"></span><button class="ib ib-open" data-a="settings" title="設定"></button><button class="ib ib-close" data-a="close" title="關閉"></button></div>
@@ -771,8 +775,7 @@ class Overlay {
         <div class="btns"><button class="ib ib-manual" data-a="manual"></button><button class="ib ib-auto" data-a="auto"></button></div>
         <div class="rw2"><button class="ib ib-confirm" data-a="confirm"></button></div>
       </div>`;
-    r.addEventListener('click', e => this.onClick(e));
-    this.render();
+    r.addEventListener('click', e => { try { this.onClick(e); } catch (err) { console.error(err); showMsg('浮窗操作發生錯誤：' + err.message); } });
   }
   fs() { return clamp(Settings.d.font_size, FONT_MIN, FONT_MAX) / BASE_FONT_PX; }      // 字體倍率
   w0() { return Math.round(24 + (MAIN_WINDOW_BASE_WIDTH - 24) * this.fs()); }         // 目前字體下的基準寬度
@@ -810,12 +813,18 @@ class Overlay {
   setView(v) { const k = this.k; this.view = v; this.root.dataset.view = v; this.render(); this.h.viewChanged(v, k); this.layout(); }
   mount(host, win) {
     if (this.ro) { this.ro.disconnect(); this.ro = null; }
-    this.host = host; this.win = win; host.appendChild(this.root);
+    this.host = host; this.win = win;
+    if (this.root.parentNode) this.root.parentNode.removeChild(this.root);
+    this.view = 'main'; this.build(host.ownerDocument); this.render();
+    host.appendChild(this.root);
     this.ro = new win.ResizeObserver(() => this.layout()); this.ro.observe(host);
     win.addEventListener('resize', () => this.layout());
     this.layout();
   }
-  unmount() { if (this.ro) { this.ro.disconnect(); this.ro = null; } this.host = null; this.win = window; }
+  unmount() {
+    if (this.ro) { this.ro.disconnect(); this.ro = null; } this.host = null; this.win = window;
+    this.view = 'main'; this.root.dataset.view = 'main'; this.render();   // 關閉浮窗時一律回到主畫面，避免下次開啟沿用「設定」畫面的高度計算
+  }
   layout() {
     if (!this.host) return;
     const W = this.host.clientWidth, H = this.host.clientHeight; if (!W || !H) return;
@@ -1012,12 +1021,14 @@ async function openPip() {
   if (!pipSupported()) { showMsg('此瀏覽器不支援置頂小浮窗（需要 Chrome / Edge 116 以上）。'); return; }
   if (pipWin) { pipWin.focus(); return; }
   const sv = savedPip(), k = Settings.d.ui_scale / 100;
-  let w = sv && sv.w ? sv.w : Math.round(overlay.w0() * k), h = sv && sv.h ? sv.h : Math.round(overlay.h0() * k);
+  let w = Math.round(overlay.w0() * k), h = Math.round(overlay.h0() * k);
+  if (sv && sv.w >= overlay.w0() * 0.5 && sv.h >= overlay.h0() * 0.5 && sv.w <= 4000 && sv.h <= 4000) { w = Math.round(sv.w); h = Math.round(sv.h); }   // 還原上次尺寸（數值不合理時退回 UI 比例）
   try { pipWin = await documentPictureInPicture.requestWindow({ width: w, height: h }); }
   catch (e) { showMsg('無法開啟置頂浮窗：' + e.message); return; }
   const doc = pipWin.document; doc.title = '經驗值計算器';
   const st = doc.createElement('style'); st.textContent = $('#ovl-css').textContent + 'html,body{margin:0;height:100%;overflow:hidden;background:#fff}body{position:relative}';
   doc.head.appendChild(st);
+  programmaticUntil = performance.now() + 600;   // 剛開啟時的初次排版不要回寫 UI 比例／視窗大小
   overlay.mount(doc.body, pipWin);
   updatePipUi();
   const w0 = pipWin;
@@ -1131,7 +1142,9 @@ async function boot() {
       if (performance.now() < programmaticUntil) return;
       const pct = clamp(Math.round(k * 10) * 10, 50, 300);
       if (pct !== Settings.d.ui_scale) { Settings.d.ui_scale = pct; Settings.save(); overlay.render(); }
-      if (pipWin) { try { localStorage.setItem(PIP_KEY, JSON.stringify({ w: pipWin.innerWidth, h: pipWin.innerHeight })); } catch (e) {} }
+      if (pipWin && overlay.view === 'main' && W >= overlay.w0() * 0.5 && H >= overlay.h0() * 0.5) {   // 只在主畫面、尺寸合理時記錄
+        try { localStorage.setItem(PIP_KEY, JSON.stringify({ w: W, h: H })); } catch (e) {}
+      }
     },
     close: () => { if (pipWin) pipWin.close(); },
     reset: () => tracker.reset(),
