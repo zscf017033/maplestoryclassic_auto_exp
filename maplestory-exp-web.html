@@ -190,7 +190,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <div class="stat"><div class="k">累積總楓幣</div><div class="v" id="stMesoTot">—</div><div class="s" id="stMesoTotS"></div></div>
       <div class="stat"><div class="k">總練功時間</div><div class="v" id="stTime">—</div><div class="s" id="stTimeS"></div></div>
     </div>
-    <p class="mut" style="margin:10px 0 0">依「開始追蹤後的實際練功時間」平均計算（閒置時間不計入）；按浮窗上的「重置」會清除統計。<br>楓幣：只有道具欄（任何分頁都可以，要看得到楓幣欄位）開著時才會讀取，不必一直開著；關閉期間賺到的楓幣，會在下次打開道具欄時一次補進來。只計算「增加」的楓幣，買東西、丟楓幣不會扣掉；賣道具、交易、領倉庫的收入會被算進去。</p>
+    <p class="mut" style="margin:10px 0 0">依「開始追蹤後的實際練功時間」平均計算（閒置時間不計入）；按浮窗上的「重置」會清除統計。<br>楓幣：只有道具欄（任何分頁都可以，要看得到楓幣欄位）開著時才會讀取；道具欄可以隨意拖曳、拉高或縮短，程式會自動追蹤楓幣欄的位置，不必一直開著；關閉期間賺到的楓幣，會在下次打開道具欄時一次補進來。只計算「增加」的楓幣，買東西、丟楓幣不會扣掉；賣道具、交易、領倉庫的收入會被算進去。</p>
   </section>
 
   <section class="card">
@@ -228,8 +228,6 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 const EXP_REQ=[0, 15, 34, 57, 92, 135, 372, 560, 840, 1242, 1716, 2360, 3216, 4200, 5460, 7050, 8840, 11040, 13716, 16680, 20216, 24402, 28980, 34320, 40512, 47216, 54900, 63666, 73080, 83720, 95700, 108480, 122760, 138666, 155540, 174216, 194832, 216600, 240500, 266682, 294216, 324240, 356916, 391160, 428280, 468450, 510420, 555680, 604416, 655200, 709716, 748608, 789631, 832902, 878545, 926689, 977471, 1031036, 1087536, 1147132, 1209994, 1276301, 1346242, 1420016, 1497832, 1579913, 1666492, 1757815, 1854143, 1955750, 2062925, 2175973, 2295216, 2410993, 2553663, 2693603, 2841212, 2996910, 3161140, 3334370, 3517093, 3709829, 3913127, 4127566, 4353756, 4592341, 4844001, 5109452, 5389449, 5684790, 5996316, 6324914, 6671519, 7037118, 7422752, 7829518, 8258575, 8711144, 9188514, 9692044, 10223168, 10783397, 11374327, 11997640, 12655110, 13348610, 14080113, 14851703, 15665576, 16524049, 17429566, 18384706, 19392187, 20454878, 21575805, 22758159, 24005306, 25320796, 26708375, 28171993, 29715818, 31344244, 33061908, 34873700, 36784778, 38800583, 40926854, 43169645, 45535341, 48030677, 50662758, 53439077, 56367538, 59456479, 62714694, 66151459, 69776558, 73600313, 77633610, 81887931, 86375389, 91108760, 96101520, 101367883, 106922842, 112782213, 118962678, 125481832, 132358236, 139611467, 147262175, 155332142, 163844343, 172823012, 182293713, 192283408, 202820538, 213935103, 225658746, 238024845, 251068606, 264827165, 279339693, 294647508, 310794191, 327825712, 345790561, 364739883, 384727628, 405810702, 428049128, 451506220, 476248760, 502347192, 529875818, 558913012, 589541445, 621848316, 655925603, 691870326, 729784819, 769777027, 811960808, 856456260, 903390063, 952895838, 1005114529, 1060194805, 1118293480, 1179575962, 1244216724, 1312399800, 1384319309, 1460180007, 1540197871, 1624600714, 1713628833, 1807535693, 1906588648, 2011069705];
 const TPL_LV='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAqCAYAAADbCvnoAAAAAXNSR0IArs4c6QAABR9JREFUWIXNmL1vFEcYh5+Z/bq1L5wUg0iiIJHihAuQAOHOBoQxwTUII7r8EZT5A5BQSkSHQhGZIg22kWUK5NZCCiUJjUWU4MNYkfH59vNmU6Bd9mP27lAknFda7czszLzP/d53Z2ZP/PDjTwklE6Lc8vnMnLA0rQcJ1P7u20qjkAfC8sH3b3+8robsYFgAMH/95WeUUgeIUDQzCIKDZiiY2fN89t6/55+dt+y93yUKw0IHIQRCCJIkyeppGSiU03ralpbzdaVUob3cx9x+2+Hv15so1Ufk3vd8OUmSDGQUGB1QCgJkKaLrb2799WcFRmfDQMoOBqmi65spFIVBBWYQ3KghyiszTL2CQmmODLNRVCnX88oM6psvm2XHOrgyTFmd8qR1iTvsBwAfFBpVlXybLhSfEqbyHOm9olCdGmgk1gHl36Y6hVIYXegqQDqI7e1tkiQhjmMMw6DVamFZVsHZzs4OSinCMMSyLBzHwXXdQh/P8wiCgDiOkVJiGAZjY2OZL6UUQ7fRJEkwDIMHDx7w8OFD2u02/X6/8uuFENy/f5/FxUWuXbuG53mVfPI8j4WFBR49esSdO3e0S4McFiKlFEEQMD09zczMDI1GgyiKUEoVLt/38X2f8+fPc/PmTXq9HnEcF+bxPI9bt25x4cIFdnd3ieO4Ek5Zzody7JVS2cSprGWFAEzT5PHjxwCcO3eO8fFxoijK+gRBQKvV4uzZswAsLS1hmmbmI01wOcoKWrcY5qEdx+Hp06dEUYSUkkuXLuH7ftbH930uXryIEIJ3796xsbGRAeXnlXVORoVJL8dx6PV6rK+vAzA3N4fnedk43/e5cuVKpk6qavntlHUA5fswKCEErutmzi5fvkwURURRRBiG9Pt95ubmMqBGo6H1qQVKafNrxSCotO44Dk+ePCFJEo4ePcqpU6cIw5Aoijh58iRHjhyh2+2yvr6ObdtaAbRAdQudDihftm07y49UJc/z8DwvU2dtbY1+v49p6pfAWqDyxlinTL5NSonjOFnY5ufnCYKAMAyZn5/PwuU4TmV8LZDu7KJTp1xO+7uuy/LyMgBTU1M0m02azSZTU1NEUcTa2hq2bWvnBTDrSMuO6sCS0mZqWRabm5u8fPmSyclJZmZmEEIgpeTZs2fs7e1x+PDhir8KkC40g6xORSkllmWxtLTE5OQks7Oz2ZEmfbvS43C/32d/fx+lVHZ2H7q5li2OY7a2tgrnJsuysCwL13VxXZdGo8Hy8jK3b9/m6tWrGIYBwMrKSiFcYRjSbrdZXFwkSRIWFhY+HWhlZUWr3t27d7l37x4Atm3z4sUL3rx5w7FjxwB4/vw5nU6HiYmJbIyUkhs3bnD8+HEArl+/Pny3F0LQbDYLkxiGUbmk/DiVaZo4jsPq6mrWtrq6SqPRKPRTSmVLRJIkbGxsIM6cOZP9XF1SK6XodDoA7O/vV56TC9nY2Biu6wLQ7XbxPI8wDAtnH8dxsvFRFNHtdjlx4gRKKV69eoU4ffp0LVBdousWxfJ43fFUd0+PIJm6uu/6upW57lmdunkrf/GmliZ8+sysc1AHogMbBFMGSet1gLVJPWjnH6bGqJb/JkzvI52H6vIkLaeTlZUol8t33XOJkJUEHZa8/0WZOrhMIbvZIhnwaaxTpe4EMArIMDhpWDaNQ19iOi4it2gNAyuDDHJYB1Buy/Yyw7IxrI97zEH+xyjzS/n/wczp2e9/n/jqm6/Hv2gdShsFAkhIks+v1b/GBhHfDifNOwAAAABJRU5ErkJggg==';
 const TPL_SHOP='data:image/png;base64,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';
-// 道具欄標題「ITEM INVENTORY」樣板（已換算成基準比例，執行時依 UI 縮放放大）
-const TPL_INV='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFgAAAAPCAAAAABFdVenAAADV0lEQVQ4EbXBbUwTZxwA8P9zvXuea7GsgYXKeKmAWF+KAiXbsEAaO+IpS5yKipg507mMRARNnZ3L3IZxS1AvJm0HWXxJukmQM1vGB8xsfOkE49TqUjW2axwsZkgsKzJIaa/e9RbG132b/H5IYCzZCMFLhwTCYZgHSCAchnmABMJhAFFBqTQgGifSQLOSzFLpBMMgKcVKMqFSaZlhQJJUSQUwESkMIpIlBRAhL2YUDYPS8TRFcEomlKhgCmYhgXAY5NtSRmRCzsgv8TGqvMrIaJ0+emVJGfPkbv1IuEZ/f2p8URmEorlDmCoq/0Wp1gxqJ/+Mq3SmouBDebE56/mPQBaWjY+uyvbrTGqYhQTCYRA9Yu2jG39ZVmQd4rSL3jg3cHhNf3fj9ozBbzqvde1r6BubzGyhzjCvnbZqjVUdw5+s6CzKDt3UWSr+7jPg0NoNY3ss6tDqZRdfrzy60UZgFhIIh0Hkkw70XaS1MHigMzdzAf/tR1uP3NnRpPG73Jf5DduGogZfB92xJX7+kF6nbn3Y9LbbtHm82/BevFvZR3qCB6T9RwrPjjt6p/IiLYsRzEIC4TCIfNLJeMPtBYHdm3Iqy4///FZ1T/SdzRq/y+27qi9JJBs+b6M9x4LH1+WsNrZq0vW+iqaYx2Af7qq0yzdch0nLdt310pY734d3bmLhX0ggHAaRTzoZb7i9IPBhs960/MRT3cSyYG2jxu9y+x6Z7z0vbTqVqZpuH+Q35piL25Yzj6O2rTGPwT7ydfluebDrU/xu0bP8L0qmTgY7VsEcJBAOg8gnnYw33F4Q+Ph0Hp3uFF/td1w1NWr8Lrcv1Np7yfp+sAd22Hznj+VS8t6KOn64uTnmMdinPTMH2bMRR2r/wd+HnMb0qeG9hTAHCYTDIPJJJ+P9ra0gYLdpDdY+peGmzbukUeN3uX2hzx6cKHbIHyhdhoGjtQtKrV9Wbbt4cueumMdgp6/36uhn3LpRx1dqt3EXe+aPPfkwBwmEwyDfkqqpBxNVmWMXEpBveQrmGfZ2lpF5EqgfidW8GFK9ifvRevXjARGKa4K5psmflq5M3H1lJT196560tC574opV+2u8htyfNGthDhLYtRj+hyRgCv4DuqBZw8I8QD+QhSYawUv3D9V/VQ9Deg6dAAAAAElFTkSuQmCC';
 
 // ===================================================================================
 // 設定（與桌面版 main.py 相同）
@@ -250,7 +248,6 @@ const REBASE_TICKS = 25;              // 連續 25 次（約 5 秒）讀數與�
 const LV_OFFSET = [37, 19, 85, 30];
 const EXP_OFFSET = [827, 4, 950, 19];
 const TEMPLATE_DIST = 992.0;
-const MESO_OFFSET = [44.13, 303.67, 124.13, 316.46];   // 楓幣數字框，相對道具欄標題樣板左上角（基準比例）
 const SETTINGS_KEY = 'mxt.web.settings.v1';
 const PIP_KEY = 'mxt.web.pipsize.v2';
 
@@ -354,9 +351,70 @@ class Recognizer {
 const cropCv = { lv: document.createElement('canvas'), exp: document.createElement('canvas') };
 const cropCtx = { lv: cropCv.lv.getContext('2d', { willReadFrequently: true }), exp: cropCv.exp.getContext('2d', { willReadFrequently: true }) };
 cropCv.meso = document.createElement('canvas'); cropCtx.meso = cropCv.meso.getContext('2d', { willReadFrequently: true });
-const invCv = document.createElement('canvas'), invCtx = invCv.getContext('2d', { willReadFrequently: true });   // 搜尋道具欄用（整張畫面）
-const vfyCv = document.createElement('canvas'), vfyCtx = vfyCv.getContext('2d', { willReadFrequently: true });   // 確認道具欄還在原位用（小範圍）
+const invCv = document.createElement('canvas'), invCtx = invCv.getContext('2d', { willReadFrequently: true });   // 掃描楓幣欄用（整張畫面或附近小範圍）
 const fullCv = document.createElement('canvas'); const fullCtx = fullCv.getContext('2d', { willReadFrequently: true });
+
+// ---------------- 楓幣欄定位（純像素運算，不依賴縮放比例或 OpenCV） ----------------
+// 道具欄可以被拖到任何地方，視窗高度也能拉高／縮短（楓幣欄固定在視窗最下方），所以不再用「標題 + 固定偏移」推算，
+// 而是直接在畫面上找楓幣欄本身。它有幾個很獨特的特徵，要全部符合才算：
+//   ① 白底框（純白 255，道具格底色只有 ~245）  ② 偏藍的細邊框（道具格是灰邊框）  ③ 左側有金幣圖示
+//   ④ 正下方緊接一個同寬同高的「楓葉點數」框（成對才算；只取上面那個，絕不會誤取點數框）
+// MESO-SCAN-BEGIN
+const MESO_RATIO = 104 / 14;                       // 楓幣框 寬／高（基準比例）
+let _mLoose = null, _mE = null;
+function scanMesoBoxes(d, rw, rh) {                // d: RGBA；回傳 { best: {x,y,w,h,gold,exact}|null, n: 候選框數 }
+  const n = rw * rh;
+  if (!_mLoose || _mLoose.length < n) { _mLoose = new Uint8Array(n); _mE = new Uint8Array(n); }
+  const loose = _mLoose, E = _mE;
+  for (let i = 0, p = 0; i < n; i++, p += 4) loose[i] = (d[p] >= 222 && d[p + 1] >= 222 && d[p + 2] >= 222) ? 1 : 0;
+  E.fill(0, 0, n);                                 // E = 白色區域往內縮 1px（吃掉縮放／壓縮造成的淡邊）
+  for (let y = 1; y < rh - 1; y++) { let i = y * rw + 1;
+    for (let x = 1; x < rw - 1; x++, i++) {
+      if (loose[i] && loose[i - 1] && loose[i + 1] && loose[i - rw] && loose[i + rw] &&
+          loose[i - rw - 1] && loose[i - rw + 1] && loose[i + rw - 1] && loose[i + rw + 1]) E[i] = 1;
+    } }
+  const blue = (xx, yy) => { if (xx < 0 || yy < 0 || xx >= rw || yy >= rh) return false; const p = (yy * rw + xx) * 4; return d[p + 2] - d[p] >= 25 && d[p] < 190; };
+  const cands = [];
+  for (let y = 1; y < rh; y++) { const row = y * rw;
+    for (let x = 1; x < rw; x++) {
+      if (!E[row + x] || E[row + x - 1] || E[row - rw + x]) continue;          // 白色區塊的左上角
+      const x2 = x + 1 < rw ? x + 1 : x; let hh = 0;
+      while (y + hh < rh && hh <= 62 && (E[(y + hh) * rw + x] || E[(y + hh) * rw + x2])) hh++;   // 左側白色欄的高度
+      hh += 2; if (hh < 8 || hh > 60) continue;                               // 還原被內縮掉的上下各 1px
+      const X0 = x - 1, Y0 = y - 1;
+      let lb = 0; for (let yy = Y0; yy < Y0 + hh; yy++) if (blue(X0 - 1, yy) || blue(X0 - 2, yy)) lb++;
+      if (lb / hh < 0.6) continue;                                            // 左邊框要偏藍
+      let wmax = 0;
+      for (let yy = y; yy < y + hh - 2; yy++) { let k = 0; while (x + k < rw && E[yy * rw + x + k]) k++; if (k > wmax) wmax = k; }
+      wmax += 2; if (wmax < hh * 0.3) continue;
+      let Wd = Math.round(hh * MESO_RATIO), exact = false;                    // 寬度：量框內最上面兩行的白色連續長度（數字通常不會碰到這兩行）；量不到合理值就用比例推算
+      let wRun = 0;
+      for (let yy = Y0; yy <= Y0 + 1 && yy < rh; yy++) { let k = 0; while (X0 + k < rw && loose[yy * rw + X0 + k]) k++; if (k > wRun) wRun = k; }
+      if (Math.abs(wRun - Wd) <= 0.15 * Wd) { Wd = wRun; exact = true; }
+      if (X0 + Wd > rw || Y0 + hh > rh) continue;
+      let tb = 0; for (let xx = X0; xx < X0 + Wd; xx++) if (blue(xx, Y0 - 1) || blue(xx, Y0 - 2)) tb++;
+      if (tb / Wd < 0.5) continue;                                            // 上邊框要偏藍
+      let pure = 0;
+      for (let yy = Y0; yy < Y0 + hh; yy++) { let p = (yy * rw + X0) * 4; for (let xx = 0; xx < Wd; xx++, p += 4) if (d[p] >= 248 && d[p + 1] >= 248 && d[p + 2] >= 248) pure++; }
+      if (pure / (Wd * hh) < 0.3) continue;                                   // 框內要夠白（道具格底色不夠白）
+      const sc = hh / 14, ix1 = X0 - Math.trunc(3 * sc), ix0 = Math.max(0, ix1 - Math.trunc(20 * sc));
+      let gold = 0;
+      for (let yy = Math.max(0, Y0 - 1); yy < Math.min(rh, Y0 + hh + 2); yy++) { let p = (yy * rw + ix0) * 4;
+        for (let xx = ix0; xx < ix1; xx++, p += 4) { const r = d[p], g = d[p + 1], b = d[p + 2]; if (r >= 190 && g >= 130 && b <= 130 && r - b >= 90) gold++; } }
+      cands.push({ x: X0, y: Y0, w: Wd, h: hh, gold, exact });
+    } }
+  cands.sort((a, b) => a.y - b.y || a.x - b.x);
+  const res = [];
+  for (const c of cands) if (!res.some(o => Math.abs(o.x - c.x) <= 2 && Math.abs(o.y - c.y) <= 2)) res.push(c);
+  let best = null;
+  for (const u of res) { if (u.gold < 6) continue;                            // 上面那個框左側要有金幣
+    for (const l of res) { const gap = l.y - (u.y + u.h);                     // 下面要緊接同寬同高的點數框
+      if (Math.abs(l.x - u.x) <= 2 && Math.abs(l.h - u.h) <= 2 && gap >= 1 && gap <= u.h) {
+        if (!best || u.y < best.y) { const ex = (u.exact || l.exact), w = Math.max(u.exact ? u.w : 0, l.exact ? l.w : 0) || u.w; best = { x: u.x, y: u.y, w, h: u.h, gold: u.gold, exact: ex }; }
+      } } }
+  return { best, n: res.length };
+}
+// MESO-SCAN-END
 
 function sameBytes(a, b) { if (!a || !b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; }
 
@@ -369,12 +427,12 @@ async function dataUriToGray(uri) {
 }
 
 class Extractor {
-  static async create(rec) { const e = new Extractor(); e.rec = rec; e.tA = await dataUriToGray(TPL_LV); e.tB = await dataUriToGray(TPL_SHOP); e.tI = await dataUriToGray(TPL_INV); return e; }
+  static async create(rec) { const e = new Extractor(); e.rec = rec; e.tA = await dataUriToGray(TPL_LV); e.tB = await dataUriToGray(TPL_SHOP); return e; }
   constructor() {
     this.scale = 0; this.size = ''; this.manual = false; this.nextTry = 0; this.fullTried = false; this.detecting = false;
     this.lvBox = [0, 0, 1, 1]; this.expBox = [0, 0, 1, 1];
     this.lvCache = null; this.expCache = null; this.mesoCache = null;
-    this.inv = null; this.invSearching = false; this.invNext = 0; this.invHint = 0; this.invSize = ''; this._tp = null;
+    this.mbox = null; this.mNext = 0; this.mSize = ''; this.dbgMesoN = 0;   // 楓幣欄位置 {x,y,w,h}、下次整張掃描時間、畫面大小、候選框數（除錯用）
     this.dbg = { lvText: '', lvConf: 0, expText: '', expConf: 0, lvImg: null, expImg: null, mesoText: '', mesoConf: 0, mesoImg: null };
   }
   get available() { return this.scale > 0; }
@@ -431,82 +489,49 @@ class Extractor {
   }
 
   // ---------------- 道具欄（楓幣）偵測 ----------------
-  // 道具欄隨時可能被打開／關閉／拖到別處：
-  //  · 已知位置時，每個 tick 只在原位附近做一次小範圍比對確認「還開著」（很快）
-  //  · 找不到時，每隔約 2 秒在整張畫面搜尋一次標題「ITEM INVENTORY」（背景進行，不卡主迴圈）
-  scaledTpl(s) {
-    if (!this._tp || Math.abs(this._tp.s - s) > 1e-6) {
-      if (this._tp) this._tp.m.delete();
-      const m = new CV.Mat(); CV.resize(this.tI, m, new CV.Size(0, 0), s, s, CV.INTER_LANCZOS4); this._tp = { s, m };
+  // 道具欄隨時可能被打開／關閉／拖到別處／拉高縮短：
+  //  · 已知位置時，每個 tick 只掃舊位置附近的小範圍（很快），順便跟著視窗移動
+  //  · 附近找不到就立刻在整張畫面找一次；還是找不到（道具欄沒開）就每約 1.2 秒掃描一次整張畫面
+  // MESO-METHODS-BEGIN
+  grab(src, x, y, w, h) { invCv.width = w; invCv.height = h; invCtx.drawImage(src.img, x, y, w, h, 0, 0, w, h); return invCtx.getImageData(0, 0, w, h); }
+  findMeso(src, box) {                             // box 有值 → 只掃舊位置附近；null → 掃整張畫面
+    let rx = 0, ry = 0, rw = src.w, rh = src.h;
+    if (box) {
+      const m = Math.round(box.h * 3);
+      rx = clamp(box.x - m, 0, src.w); ry = clamp(box.y - m, 0, src.h);
+      rw = clamp(box.x + box.w + m, 0, src.w) - rx; rh = clamp(box.y + box.h * 3 + m, 0, src.h) - ry;
     }
-    return this._tp.m;
-  }
-  verifyInv(src) {
-    const inv = this.inv, tp = this.scaledTpl(inv.s), mg = 10;
-    const x1 = clamp(inv.x - mg, 0, src.w), y1 = clamp(inv.y - mg, 0, src.h);
-    const x2 = clamp(inv.x + tp.cols + mg, 0, src.w), y2 = clamp(inv.y + tp.rows + mg, 0, src.h);
-    const w = x2 - x1, h = y2 - y1; if (w < tp.cols || h < tp.rows) return false;
-    vfyCv.width = w; vfyCv.height = h; vfyCtx.drawImage(src.img, x1, y1, w, h, 0, 0, w, h);
-    const rgba = CV.matFromImageData(vfyCtx.getImageData(0, 0, w, h)), gray = new CV.Mat(), res = new CV.Mat();
-    let ok = false;
-    try {
-      CV.cvtColor(rgba, gray, CV.COLOR_RGBA2GRAY); CV.matchTemplate(gray, tp, res, CV.TM_CCOEFF_NORMED);
-      const mm = CV.minMaxLoc(res);
-      if (mm.maxVal >= 0.65) { inv.x = x1 + mm.maxLoc.x; inv.y = y1 + mm.maxLoc.y; ok = true; }
-    } finally { rgba.delete(); gray.delete(); res.delete(); }
-    return ok;
-  }
-  invScaleList() {
-    if (!this.manual) return [this.scale];                     // 自動偵測：UI 縮放已知，只比對一個尺度
-    const a = [];
-    if (this.invHint) { for (let i = -5; i <= 5; i++) a.push(+(this.invHint + i * 0.01).toFixed(3)); }
-    else for (let s = 0.5; s <= 2.5001; s += 0.02) a.push(+s.toFixed(3));   // 手動校正時沒有縮放資訊，掃描一遍
-    return a;
-  }
-  startInvSearch(src) {
-    if (this.invSearching || performance.now() < this.invNext) return;
-    this.invNext = performance.now() + (this.manual ? 6000 : 2000);
-    invCv.width = src.w; invCv.height = src.h; invCtx.drawImage(src.img, 0, 0);          // 同步取好畫面，之後可慢慢比對
-    const rgba = CV.matFromImageData(invCtx.getImageData(0, 0, src.w, src.h)), gray = new CV.Mat();
-    CV.cvtColor(rgba, gray, CV.COLOR_RGBA2GRAY); rgba.delete();
-    this.invSearching = true;
-    this.searchInv(gray).catch(e => console.warn('inventory search failed', e)).finally(() => { gray.delete(); this.invSearching = false; });
-  }
-  async searchInv(gray) {
-    const list = this.invScaleList(); let best = null;
-    for (const s of list) {
-      const rz = new CV.Mat(), res = new CV.Mat();
-      try {
-        CV.resize(this.tI, rz, new CV.Size(0, 0), s, s, CV.INTER_LANCZOS4);
-        if (rz.cols <= gray.cols && rz.rows <= gray.rows) {
-          CV.matchTemplate(gray, rz, res, CV.TM_CCOEFF_NORMED);
-          const mm = CV.minMaxLoc(res);
-          if (!best || mm.maxVal > best.v) best = { v: mm.maxVal, x: mm.maxLoc.x, y: mm.maxLoc.y, s };
-        }
-      } finally { rz.delete(); res.delete(); }
-      if (list.length > 1) await yieldNow();
-    }
-    this.dbgInvScore = best ? best.v : 0;
-    if (best && best.v >= 0.8) { this.inv = { x: best.x, y: best.y, s: best.s }; if (this.manual) this.invHint = best.s; }
-    else if (this.manual) this.invHint = 0;
+    if (rw < 20 || rh < 20) return null;
+    const r = scanMesoBoxes(this.grab(src, rx, ry, rw, rh).data, rw, rh);
+    this.dbgMesoN = r.n;
+    return r.best ? { x: r.best.x + rx, y: r.best.y + ry, w: r.best.w, h: r.best.h, exact: r.best.exact } : null;
   }
   // 同步擷取楓幣數字框；道具欄沒開（或還沒找到）回傳 null
   cropMeso(src) {
-    if (!this.available || !CV) return null;
+    if (!this.available) return null;
     const size = src.w + 'x' + src.h;
-    if (this.invSize !== size) { this.invSize = size; this.inv = null; this.invNext = 0; this.invHint = 0; }
-    if (this.inv && !this.manual && Math.abs(this.inv.s - this.scale) > 1e-6) this.inv = null;
-    if (this.inv && !this.verifyInv(src)) { this.inv = null; this.invNext = 0; this.mesoCache = null; }
-    if (!this.inv) { this.startInvSearch(src); return null; }
-    const { x, y, s } = this.inv, o = MESO_OFFSET;
-    const x1 = clamp(Math.round(x + o[0] * s), 0, src.w), y1 = clamp(Math.round(y + o[1] * s), 0, src.h);
-    const x2 = clamp(Math.round(x + o[2] * s), 0, src.w), y2 = clamp(Math.round(y + o[3] * s), 0, src.h);
-    if (x2 <= x1 || y2 <= y1) return null;
-    const c = cropCv.meso, cx = cropCtx.meso, w = x2 - x1, h = y2 - y1;
-    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
-    cx.drawImage(src.img, x1, y1, w, h, 0, 0, w, h);
-    return cx.getImageData(0, 0, w, h);
+    if (this.mSize !== size) { this.mSize = size; this.mbox = null; this.mNext = 0; this.mesoCache = null; }
+    let b = null;
+    if (this.mbox) {
+      b = this.findMeso(src, this.mbox);
+      if (!b) { this.mbox = null; this.mesoCache = null; this.mNext = 0; }   // 剛消失：馬上全畫面找一次（可能被拖到別處）
+    }
+    if (!b) {
+      const now = performance.now(); if (now < this.mNext) return null;
+      this.mNext = now + 1200;
+      b = this.findMeso(src, null);
+    }
+    this.mbox = b; if (!b) return null;
+    // 數字靠右對齊，只取框內右側（OCR 輸入寬高比上限 320/48 ≈ 6.67）；框寬是推算值時，右邊多留一點避開邊框線
+    const sc = b.h / 14, cw = Math.min(b.w, Math.floor(b.h * 6.6));
+    const x2 = b.x + b.w - (b.exact ? 1 : Math.max(2, Math.round(2 * sc))), x1 = x2 - cw;
+    if (cw < 8 || x1 < 0 || x2 > src.w || b.y < 0 || b.y + b.h > src.h) return null;
+    const c = cropCv.meso, cx = cropCtx.meso;
+    if (c.width !== cw || c.height !== b.h) { c.width = cw; c.height = b.h; }
+    cx.drawImage(src.img, x1, b.y, cw, b.h, 0, 0, cw, b.h);
+    return cx.getImageData(0, 0, cw, b.h);
   }
+  // MESO-METHODS-END
   async readMeso(img) {
     if (!img) return { v: -1, conf: 0 };
     this.dbg.mesoImg = img;
@@ -868,8 +893,8 @@ function updateDbg(src) {
   const d = extractor.dbg;
   const put = (id, img) => { const c = $(id); if (!img) return; if (c.width !== img.width || c.height !== img.height) { c.width = img.width; c.height = img.height; } c.getContext('2d').putImageData(img, 0, 0); };
   put('#dbgLv', d.lvImg); put('#dbgExp', d.expImg); put('#dbgMeso', d.mesoImg);
-  $('#dbgMesoT').textContent = extractor.inv ? (d.mesoText ? `“${d.mesoText}”  信心 ${d.mesoConf.toFixed(2)}` : '道具欄已偵測') + `｜位置 (${extractor.inv.x}, ${extractor.inv.y})`
-    : '未偵測到道具欄（沒開或位置不明）' + (extractor.dbgInvScore ? `｜最高相似度 ${extractor.dbgInvScore.toFixed(2)}，需 ≥ 0.80` : '');
+  $('#dbgMesoT').textContent = extractor.mbox ? (d.mesoText ? `“${d.mesoText}”  信心 ${d.mesoConf.toFixed(2)}` : '道具欄已偵測') + `｜楓幣欄 (${extractor.mbox.x}, ${extractor.mbox.y}) ${extractor.mbox.w}×${extractor.mbox.h}`
+    : '未偵測到道具欄（沒開，或楓幣欄被其他視窗擋住）' + (extractor.dbgMesoN ? `｜掃到 ${extractor.dbgMesoN} 個白框，但不符合「楓幣＋點數成對」` : '');
   $('#dbgLvT').textContent = d.lvText ? `“${d.lvText}”  信心 ${d.lvConf.toFixed(2)}` : '';
   $('#dbgExpT').textContent = d.expText ? `“${d.expText}”  信心 ${d.expConf.toFixed(2)}` : '';
   const sc = extractor.scale;
