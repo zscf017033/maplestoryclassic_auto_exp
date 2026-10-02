@@ -336,16 +336,16 @@ class Recognizer {
     return new ort.Tensor('float32', out, [1, 3, H, W]);
   }
   decode(t) {                              // t.dims = [1, T, C]
-    const [, T, C] = t.dims, d = t.data; let text = '', sum = 0, n = 0, last = 0;
+    const [, T, C] = t.dims, d = t.data; let text = '', sum = 0, n = 0, last = 0, mn = 1;
     for (let i = 0; i < T; i++) {
       let bi = 0, bv = -Infinity; const o = i * C;
       for (let j = 0; j < C; j++) { const v = d[o + j]; if (v > bv) { bv = v; bi = j; } }
       if (bi === 0) { last = 0; continue; }
       if (bi === last) continue;
       if (bi >= this.chars.length) { last = bi; continue; }
-      text += this.chars[bi]; sum += bv; n++; last = bi;
+      text += this.chars[bi]; sum += bv; n++; last = bi; if (bv < mn) mn = bv;
     }
-    return { text, conf: n ? sum / n : 0 };
+    return { text, conf: n ? sum / n : 0, min: n ? mn : 0 };
   }
   async recognize(img) {
     const out = await this.session.run({ [this.inName]: this.preprocess(img) });
@@ -440,7 +440,7 @@ class Extractor {
     this.scale = 0; this.size = ''; this.manual = false; this.nextTry = 0; this.fullTried = false; this.detecting = false;
     this.lvBox = [0, 0, 1, 1]; this.expBox = [0, 0, 1, 1];
     this.lvCache = null; this.expCache = null; this.mesoCache = null;
-    this.mbox = null; this.mNext = 0; this.mSize = ''; this.dbgMesoN = 0;   // 楓幣欄位置 {x,y,w,h}、下次整張掃描時間、畫面大小、候選框數（除錯用）
+    this.mbox = null; this.mNext = 0; this.mSize = ''; this.dbgMesoN = 0; this.mesoSkip = ''; this.mesoTint = 0;   // 楓幣欄位置 {x,y,w,h}、下次整張掃描時間、畫面大小、候選框數（除錯用）
     this.dbg = { lvText: '', lvConf: 0, expText: '', expConf: 0, lvImg: null, expImg: null, mesoText: '', mesoConf: 0, mesoImg: null };
   }
   get available() { return this.scale > 0; }
@@ -537,7 +537,15 @@ class Extractor {
     const c = cropCv.meso, cx = cropCtx.meso;
     if (c.width !== cw || c.height !== b.h) { c.width = cw; c.height = b.h; }
     cx.drawImage(src.img, x1, b.y, cw, b.h, 0, 0, cw, b.h);
-    return cx.getImageData(0, 0, cw, b.h);
+    const img = cx.getImageData(0, 0, cw, b.h);
+    // 楓幣欄只有「純白底＋黑灰色數字」，完全沒有彩色。游標（手套）、滑鼠提示框、其他視窗邊角蓋上來時
+    // 會出現偏藍／偏彩色的像素，這種畫面 OCR 很容易讀錯（例如把 1 讀成 2），所以直接不辨識。
+    const dd = img.data; let tint = 0;
+    for (let i = 0; i < dd.length; i += 4) { const mx = Math.max(dd[i], dd[i + 1], dd[i + 2]), mn = Math.min(dd[i], dd[i + 1], dd[i + 2]); if (mx - mn >= 18) tint++; }
+    this.mesoTint = tint;
+    if (tint >= Math.max(12, cw * b.h * 0.015)) { this.mesoSkip = '有異物遮住（游標等），略過這次'; this.dbg.mesoImg = img; return null; }
+    this.mesoSkip = '';
+    return img;
   }
   // MESO-METHODS-END
   async readMeso(img) {
@@ -545,10 +553,14 @@ class Extractor {
     this.dbg.mesoImg = img;
     if (this.mesoCache && sameBytes(this.mesoCache.arr, img.data)) return this.mesoCache.res;
     let r; try { r = await this.rec.recognize(img); } catch (e) { console.warn('Meso recognition failed', e); return { v: -1, conf: 0 }; }
-    this.dbg.mesoText = r.text; this.dbg.mesoConf = r.conf;
+    this.dbg.mesoText = r.text; this.dbg.mesoConf = Math.min(r.conf, r.min);
     let res = { v: -1, conf: 0 };
-    const digits = r.text.replace(/\D/g, '');                 // 「16,958,405」→ 16958405
-    if (digits.length >= 1 && digits.length <= 10) { const v = parseInt(digits, 10); if (Number.isFinite(v) && v <= 2147483647) res = { v, conf: r.conf }; }
+    // 格式一定要是「1,234,567」（千分位逗號）或純數字；夾到別的字元、逗號位置不對 → 視為讀錯，整次丟掉
+    const t = r.text.replace(/\s/g, '');
+    if (/^(\d{1,3}(,\d{3})+|\d+)$/.test(t)) {
+      const digits = t.replace(/,/g, '');
+      if (digits.length >= 1 && digits.length <= 10) { const v = parseInt(digits, 10); if (Number.isFinite(v) && v <= 2147483647) res = { v, conf: Math.min(r.conf, r.min) }; }
+    }
     this.mesoCache = { arr: new Uint8ClampedArray(img.data), res };
     return res;
   }
@@ -619,7 +631,7 @@ class Tracker {
   constructor(onChange) { this.onChange = onChange; this.onReset = null; this.lines = {}; this.reset(); }
   reset() {
     // 楓幣：mesoBase = 最近一次採用的讀數；mesoTotal = 開始追蹤後累積「增加」的楓幣（花費不扣除）
-    this.mesoBase = null; this.mesoCur = 0; this.mesoPend = null; this.mesoPendN = 0; this.mesoTotal = 0; this.mesoSec = 0;
+    this.mesoBase = null; this.mesoCur = 0; this.mesoPend = null; this.mesoPendN = 0; this.mesoPendT = 0; this.mesoTotal = 0; this.mesoSec = 0;
     this.mesoHist = []; this.mesoHistT = 0; this.mesoLastTick = 0; this.mesoWasIdle = false; this.mesoOpen = false; this.mesoStats = null;
     // lvl/exp：最近一次「可信」的讀數；total：從開始追蹤累積的經驗增量（不依賴等級經驗表，升等時才不會算錯）
     this.lvl = -1; this.exp = 0; this.total = 0; this.rejects = 0;
@@ -633,21 +645,29 @@ class Tracker {
   refresh() { this.computeMeso(Date.now() / 1000, Settings.d.idle_timeout_min * 60); if (this.lastData) this.update(...this.lastData); else this.onChange(); }
   // 每個 tick 都會呼叫：value = 這次讀到的楓幣；道具欄沒開／讀不到時傳 null（不記錄，但時間仍照算，
   // 下次打開道具欄時，這段期間賺到的楓幣會一次補進來）
-  tickMeso(value) {
+  // 防誤判：楓幣數字一旦讀錯一個位數，差距會是幾十萬～幾千萬。所以
+  //   · 小幅增加（≤ MESO_BIG）：連續 2 次讀到同一個數字就採用（打怪的正常收入）
+  //   · 大幅增加（> MESO_BIG）：同一個數字要「持續」MESO_BIG_SEC 秒才採用（真的賣東西、領倉庫會一直維持；游標一晃就過去的誤讀不會）
+  //   · 減少：持續 MESO_DOWN_SEC 秒才採用為新基準（避免讀小又讀回來，被當成賺到）
+  // skip = true：道具欄還開著，但這次畫面被擋住／信心太低，整次不採用（也不會打斷已經在確認中的數字）
+  tickMeso(value, skip) {
     const now = Date.now() / 1000, idleSec = Settings.d.idle_timeout_min * 60;
-    this.mesoOpen = value !== null && value !== undefined;
-    if (this.mesoOpen) {
+    const MESO_BIG = 200000, MESO_BIG_SEC = 6, MESO_DOWN_SEC = 3;
+    this.mesoOpen = (value !== null && value !== undefined) || !!skip;
+    if (value !== null && value !== undefined && !skip) {
       this.mesoCur = value;
       if (this.mesoBase === null) {                         // 第一次讀到：當作基準
         this.mesoBase = value; this.mesoHist = [[now, 0]]; this.mesoHistT = now; this.mesoLastTick = now;
       } else if (value !== this.mesoBase) {
-        // 需連續兩次讀到同一個新數字才採用，避免單次辨識錯誤
-        if (this.mesoPend === value) this.mesoPendN++; else { this.mesoPend = value; this.mesoPendN = 1; }
-        if (this.mesoPendN >= 2) {
-          if (value > this.mesoBase) this.mesoTotal += value - this.mesoBase;   // 只算增加；買東西等花費不扣
-          this.mesoBase = value; this.mesoPend = null;
+        if (this.mesoPend === value) this.mesoPendN++; else { this.mesoPend = value; this.mesoPendN = 1; this.mesoPendT = now; }
+        const up = value > this.mesoBase, big = up && value - this.mesoBase > MESO_BIG;
+        const ok = up ? (big ? now - this.mesoPendT >= MESO_BIG_SEC && this.mesoPendN >= 5 : this.mesoPendN >= 2)
+                      : now - this.mesoPendT >= MESO_DOWN_SEC && this.mesoPendN >= 5;
+        if (ok) {
+          if (up) this.mesoTotal += value - this.mesoBase;   // 只算增加；買東西等花費不扣
+          this.mesoBase = value; this.mesoPend = null; this.mesoPendN = 0;
         }
-      } else this.mesoPend = null;
+      } else { this.mesoPend = null; this.mesoPendN = 0; }
     }
     this.computeMeso(now, idleSec);
     if (typeof renderStats === 'function') renderStats();
@@ -897,8 +917,9 @@ async function tick() {
     const lvImg = extractor.crop(src2, 'lv'), expImg = extractor.crop(src2, 'exp');
     const mesoImg = extractor.cropMeso(src2);                 // 道具欄沒開 → null（同樣在 await 之前同步擷取）
     const lv = await extractor.readLevel(lvImg), ex = await extractor.readExp(expImg);
-    let mv = null;
-    if (mesoImg) { const m = await extractor.readMeso(mesoImg); if (m.v >= 0 && m.conf >= 0.8) mv = m.v; }
+    let mv = null, mskip = false;
+    if (mesoImg) { const m = await extractor.readMeso(mesoImg); if (m.v >= 0 && m.conf >= 0.9) mv = m.v; else mskip = true; }
+    else if (extractor.mesoSkip) mskip = true;
     updateDbg(src2);
     if (lv.conf < 0.8 || ex.conf < 0.8) tracker.setStatus('讀取中...');
     else {
@@ -908,7 +929,7 @@ async function tick() {
         tracker.update(idx, ex.v, pct);
       } else tracker.setStatus('等級讀取異常');
     }
-    tracker.tickMeso(mv);
+    tracker.tickMeso(mv, mskip);
   } catch (e) { console.error(e); tracker.setStatus('處理時發生錯誤'); }
   finally { cap.busy = false; }
 }
@@ -918,7 +939,7 @@ function updateDbg(src) {
   const d = extractor.dbg;
   const put = (id, img) => { const c = $(id); if (!img) return; if (c.width !== img.width || c.height !== img.height) { c.width = img.width; c.height = img.height; } c.getContext('2d').putImageData(img, 0, 0); };
   put('#dbgLv', d.lvImg); put('#dbgExp', d.expImg); put('#dbgMeso', d.mesoImg);
-  $('#dbgMesoT').textContent = extractor.mbox ? (d.mesoText ? `“${d.mesoText}”  信心 ${d.mesoConf.toFixed(2)}` : '道具欄已偵測') + `｜楓幣欄 (${extractor.mbox.x}, ${extractor.mbox.y}) ${extractor.mbox.w}×${extractor.mbox.h}`
+  $('#dbgMesoT').textContent = extractor.mbox ? (extractor.mesoSkip ? extractor.mesoSkip + `（異色像素 ${extractor.mesoTint}）` : d.mesoText ? `“${d.mesoText}”  最低信心 ${d.mesoConf.toFixed(2)}${d.mesoConf < 0.9 ? '（低於 0.90，略過）' : ''}` : '道具欄已偵測') + `｜楓幣欄 (${extractor.mbox.x}, ${extractor.mbox.y}) ${extractor.mbox.w}×${extractor.mbox.h}`
     : '未偵測到道具欄（沒開，或楓幣欄被其他視窗擋住）' + (extractor.dbgMesoN ? `｜掃到 ${extractor.dbgMesoN} 個白框，但不符合「楓幣＋點數成對」` : '');
   $('#dbgLvT').textContent = d.lvText ? `“${d.lvText}”  信心 ${d.lvConf.toFixed(2)}` : '';
   $('#dbgExpT').textContent = d.expText ? `“${d.expText}”  信心 ${d.expConf.toFixed(2)}` : '';
