@@ -634,7 +634,7 @@ class Tracker {
     this.mesoBase = null; this.mesoCur = 0; this.mesoPend = null; this.mesoPendN = 0; this.mesoPendT = 0; this.mesoTotal = 0; this.mesoSec = 0;
     this.mesoHist = []; this.mesoHistT = 0; this.mesoLastTick = 0; this.mesoWasIdle = false; this.mesoOpen = false; this.mesoStats = null;
     // lvl/exp：最近一次「可信」的讀數；total：從開始追蹤累積的經驗增量（不依賴等級經驗表，升等時才不會算錯）
-    this.lvl = -1; this.exp = 0; this.total = 0; this.rejects = 0;
+    this.lvl = -1; this.exp = 0; this.total = 0; this.rejects = 0; this.maxStep = 0;
     this.lastGain = 0; this.activeSec = 0; this.lastTick = 0; this.stats = null; this.sessionStart = -1; this.hist = []; this.lastHistUpdate = 0; this.lastData = null;
     this.lines = { player: '統計已重置', rate: '十分鐘經驗：計算中...', eta: '距離升等還要：計算中...', active: '持續練等：00:00', meso: '十分鐘楓幣：請開啟道具欄' };
     if (typeof renderStats === 'function') renderStats();
@@ -707,14 +707,20 @@ class Tracker {
     } else {
       // 這次讀數相對上一筆可信讀數增加了多少經驗？
       const maxGain = Math.max(req * 0.05, 100);
-      let g = null;
-      if (level === this.lvl) g = experience - this.exp;
-      else if (level === this.lvl + 1) {                     // 升等：舊等級剩下的 + 新等級已有的
-        g = (EXP_REQ[this.lvl] - this.exp) + experience;
-        if (g < 0 || g > maxGain) g = experience <= maxGain ? experience : null;   // 經驗表與遊戲不符時的保底
+      let g = null, sameLv = false;
+      if (level === this.lvl) { g = experience - this.exp; sameLv = true; }
+      else if (level === this.lvl + 1) {
+        // 升等：舊等級剩下的 + 新等級已有的。
+        // 「舊等級剩下」是用經驗表算的，經驗表與遊戲有落差、或升等前最後一筆讀數太舊時，會憑空灌入上百萬經驗
+        // （而 5% 的上限在高等級可高達數百萬，擋不住）。所以這兩段都限制在「單次合理增量」以內：
+        // 寧可少算一隻怪的經驗，也不要多算。單次合理增量 = 目前觀察到的最大單次增量 × 3（至少 200）。
+        const stepCap = Math.max(this.maxStep * 3, 200);
+        const remain = Math.max(0, EXP_REQ[this.lvl] - this.exp);
+        g = Math.min(remain, stepCap) + Math.min(experience, stepCap);
       }
       if (g !== null && g >= 0 && g <= maxGain) {
         this.rejects = 0; this.lvl = level; this.exp = experience;
+        if (sameLv && g > 0) this.maxStep = Math.max(g, this.maxStep * 0.995);   // 緩慢衰減，避免一次誤讀把上限墊太高
         if (g > 0) {
           this.total += g;
           if (now - this.lastGain >= idleSec) { this.hist = [[now, this.total]]; this.sessionStart = now; }
