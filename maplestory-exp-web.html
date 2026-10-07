@@ -541,9 +541,9 @@ class Extractor {
     // 楓幣欄只有「純白底＋黑灰色數字」，完全沒有彩色。游標（手套）、滑鼠提示框、其他視窗邊角蓋上來時
     // 會出現偏藍／偏彩色的像素，這種畫面 OCR 很容易讀錯（例如把 1 讀成 2），所以直接不辨識。
     const dd = img.data; let tint = 0;
-    for (let i = 0; i < dd.length; i += 4) { const mx = Math.max(dd[i], dd[i + 1], dd[i + 2]), mn = Math.min(dd[i], dd[i + 1], dd[i + 2]); if (mx - mn >= 18) tint++; }
+    for (let i = 0; i < dd.length; i += 4) { const mx = Math.max(dd[i], dd[i + 1], dd[i + 2]), mn = Math.min(dd[i], dd[i + 1], dd[i + 2]); if (mx - mn >= 40) tint++; }
     this.mesoTint = tint;
-    if (tint >= Math.max(12, cw * b.h * 0.015)) { this.mesoSkip = '有異物遮住（游標等），略過這次'; this.dbg.mesoImg = img; return null; }
+    if (tint >= Math.max(20, cw * b.h * 0.02)) { this.mesoSkip = '有異物遮住（游標等），略過這次'; this.dbg.mesoImg = img; return null; }
     this.mesoSkip = '';
     return img;
   }
