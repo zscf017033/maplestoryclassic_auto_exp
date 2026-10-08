@@ -193,7 +193,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   </section>
 
   <section class="card">
-    <h2><b>4</b>經驗／楓幣統計</h2>
+    <h2><b>4</b>經驗／楓幣統計<button class="b" id="btnPause" style="margin-left:auto;padding:4px 12px;font-size:13px">⏸ 暫停統計</button></h2>
     <div class="stats">
       <div class="stat"><div class="k">平均每十分經驗</div><div class="v" id="stAvg10">—</div><div class="s" id="stAvg10S"></div></div>
       <div class="stat"><div class="k">平均一小時經驗</div><div class="v" id="stAvgHr">—</div><div class="s" id="stAvgHrS"></div></div>
@@ -652,7 +652,7 @@ class Tracker {
   setStatus(text) { if (this.lastData === null || Settings.d.show_player_info) this.lines.player = text; this.onChange(); }
   // 暫停／繼續：暫停期間不讀取、不計時；繼續時把所有時間戳往後平移暫停的秒數，
   // 並且以「繼續後的第一筆讀數」當新基準，暫停期間賺的經驗/楓幣不計入，平均值與閒置判斷也不會被暫停時間影響
-  pause() { if (this.paused) return; this.paused = true; this.pauseAt = Date.now() / 1000; this.onChange(); }
+  pause() { if (this.paused) return; this.paused = true; this.pauseAt = Date.now() / 1000; if (typeof renderStats === 'function') renderStats(); this.onChange(); }
   resume() {
     if (!this.paused) return;
     const d = Date.now() / 1000 - this.pauseAt; this.paused = false;
@@ -664,6 +664,7 @@ class Tracker {
       this.mesoHist = this.mesoHist.map(([t, e]) => [t + d, e]); this.mesoHistT += d; this.mesoLastTick = 0;
       this.mesoPend = null; this.mesoPendN = 0; this.mesoRebase = true;
     }
+    if (typeof renderStats === 'function') renderStats();
     this.onChange();
   }
   togglePause() { if (this.paused) this.resume(); else this.pause(); }
@@ -1182,6 +1183,7 @@ function fmtDur(sec) {
   return `${m}分${pad2(s)}秒`;
 }
 function renderStats() {
+  { const pb = document.getElementById('btnPause'); if (pb && tracker) { const t = tracker.paused ? '▶ 繼續統計' : '⏸ 暫停統計'; if (pb.textContent !== t) pb.textContent = t; } }
   const st = tracker && tracker.stats, set = (id, t) => { const el = document.getElementById(id); if (el && el.textContent !== t) el.textContent = t; };
   const pc = p => p === null || p === undefined ? '' : `約 ${p.toFixed(2)}% 等級經驗`;
   const ms = tracker && tracker.mesoStats;
@@ -1238,6 +1240,7 @@ async function boot() {
   try { const cw = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),1000)'], { type: 'text/javascript' }))); cw.onmessage = () => overlay.updateClock(); }
   catch (e) { setInterval(() => overlay.updateClock(), 1000); }
 
+  $('#btnPause').onclick = () => tracker.togglePause();
   $('#btnStart').onclick = startCapture; $('#btnStop').onclick = () => stopCapture();
   $('#btnPip').onclick = () => pipWin ? pipWin.close() : openPip();
   $('#btnManual').onclick = openCalibration; $('#btnAuto').onclick = () => overlay.h.auto();
