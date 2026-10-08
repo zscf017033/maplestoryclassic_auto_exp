@@ -30,7 +30,7 @@
 .ovl .ln{line-height:calc(var(--k)*17px*var(--f));height:calc(var(--k)*17px*var(--f));white-space:nowrap;overflow:hidden;flex:none;
   text-shadow:calc(var(--k)*1px) calc(var(--k)*1px) calc(var(--k)*4px) rgba(0,0,0,.235)}
 .ovl .rw{margin-top:auto;display:flex;align-items:center;padding-bottom:calc(var(--k)*14px);flex:none}
-.ovl .rw .ib-reset{margin-left:auto}
+.ovl .rw .bg{margin-left:auto;display:flex;align-items:center;gap:calc(var(--k)*3px);flex:none}
 .ovl .ck{white-space:nowrap;line-height:calc(var(--k)*17px*var(--f));text-shadow:calc(var(--k)*1px) calc(var(--k)*1px) calc(var(--k)*4px) rgba(0,0,0,.235)}
 .ovl .cb{display:flex;align-items:center;gap:calc(var(--k)*5px);height:calc(var(--k)*16px*var(--f));cursor:var(--cur-c);flex:none;
   text-shadow:calc(var(--k)*1px) calc(var(--k)*1px) calc(var(--k)*4px) rgba(0,0,0,.235);white-space:nowrap}
@@ -68,6 +68,13 @@
 .ovl .ib-reset:hover{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEYAAAASCAYAAADmMahlAAAAAXNSR0IArs4c6QAAAmNJREFUWIXtmDFoU0EYx38X0tAmps3LUi1Vgg0IgpBiNgdBElBBJ0VsBoV0bcDFOChk7FvV0UAdFKVuBR3ayUEQUhLF0Uh1UFzySmqEPivn0OS9e2nSlqbvpaL/5d139919//vz3eW7CDahtX3/VRitr78phgZU+0zqICANfAIQTVFqNfJo+av9JtY3GPo8UXSa4iz71eNj6POekomsFhAjg5hPKzQyzzyN3Q1SykUhxITf7UCBbJLQoysdx35/NqhHCgSySasvXM7hT4xtu+ZG5Strk/f3nasK14UxiyXMYsmyh/QL+MZHHBmijgM0pl9gFksMr+Spx3QARztczrlNGwEcB6o18q4EaB2XnWCIO9DnjImiI6XEk6O0GikQLuesjbRnTLicY/3hG8u/fcOBbJKBc3HP7yBFGPdKGH9iDE3OOvoCUwmrvU7Iiq/Jzpmr+gM0pl9hFt+7wpfd3jGaUvnsBRuV76xNzgEwpJ/FNz5MI7MAQLh80+FrCN1hH1q6xkDq+ZY1Q4C5By673YsljKZtnzE95VNidEsmBKZO2iSCQUJq/HfX4WjYttW5dRNicz1x6jpPUczOmB2E6QkTSn10+xQcCcKtt04fNb7P55yj4vVF97h2FsadWDxJw4nI1v7Lx+z2twZcemnbPqDapQr/8cuTF537l2/GWaMwE4fRQbj7oc1Rje+D5FLn9RbOePLWdffneiYON2Kdx84fdtqPV+DLT7jXvHtKqe7rllKb/g8+7iNZJ6xHpDy96FqQvwViOd0q8KLi/98ONqSUAJYwtA6tlLLWT2IHAUKIKGD8AVZEqTZ0HXj7AAAAAElFTkSuQmCC)}
 .ovl .ib-reset:active{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEYAAAASCAYAAADmMahlAAAAAXNSR0IArs4c6QAAAp5JREFUWIXtmE1IVFEUx39XnlN+jPimD83BMBMisdWEBgaGOFBEIEKBCNYiohZCq4ywjUSlq6hFFgQatikIQYJgRGoxYDGzk9qYSjEqlT5zGmoGR1vMzPsYZ6zgXY3qt3n3nnvOff93OPe++54ggZp2/VfRUlclmQzV4/G822RRm04wGPQCkwAimZQFn+fmhgspvnUEkacQez1H5MH4ht8/HW/wcio5QUX28nHUl1HQXp1xLD7/jaWLL3DUl+k2Z1cdSrlz3TmXP4QJX3tlu1aA1dVVnxBiryJldhMx/wwx/4zez2upIkfdaqkQ8zhA5OEbYv4Ziq7Xs3TFD2BpO7vqZMvGlBjN2HpspLi/GZGfu8buqC219LVTTxKNeJyC9mq9ytR7TbpPqr08vQiazWLT1o2RGAlJAVg8M4Sz10v4kg+AvLYD5GzLJ3I7sRScvV6izyd0/5RfCkfjHnJrdur+0kh7fiWL3VbUimLUxyctNsfh3RZN4WS7Ms0vkz/Ap74A4dEpCWoTmCpGXmqiE58JXXgKgOtsLcqOQj7eGAXAfbcFIhH9/pPe+5bYXT3Hme18Jk1bNqRvvgBbqrZT6TtnsRU2VmX1Lx9sJbfEeDOZY1ciMaab+yUpNdiQxJirIL1ifiXGTPlgq+36MmHsMZKW0v5HZ8jfV7LGbq6Y6OwXxk/06X33ysqaCksR/xqVptWM9Ip522Yte3dHA46SIqa6hteNCx7syWivGT5vq75sSE2Mu6OB0tOHMo65jlpPw3MDY3x/r1Fx9RgAnkBn1nk9gU7mBsYI3Xlps2IDqW+lUPcQoe6h34qZ75f3sD/FdMhTzEeYyqamLBF/P5MjI+auJv7/djAIBAIACCFcImlTSXxZLmymsD8BIYQL0H4AXG7MThdgbAkAAAAASUVORK5CYII=)}
 .ovl .ib-reset:disabled{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEYAAAASCAYAAADmMahlAAAAAXNSR0IArs4c6QAAAm5JREFUWIXtmL+r2lAUx7+3RNFAwEgRQRDTCm+piwk4ZOjiXZyk4P6m9y/0b+i/8KbuQrGLi/JwcRASJ6diDTwIhEd9CvLQIWAHzU+N1darhfaz3HtPbu75enLuuYkEG8RQ+68yc1puGwxRluXvVxZ1dXRdpwAmAEC2QXn+eHeHN7J8bW1XY6Lr+HR/7wRH5/zbZ6LrFxVTv71FLB7H43iMwcPDRX1HsV6vO4SQt5xnYlNepBsJyntl77WXxQtan79CupFc//QDRep16uCa8x9zdL50mOh18ALDqOwaTwaMpuGOS6USeJ7HYDBw/RpPhuefAzRNg2EYqNVqaLfbABDoU0qZHxPcEXP+iHq9jlgstmPP5/OBcbPZdPuKokBRNlnWaDRcu9Ofz+cMFW9gHphWqwVKKTqdTeqHM4ZSivF47M535jlIkoRMJuNl2IVgHhgASKVSgSePPRnjEJ4XNd/ZbqxwAyOGN60znIX6h4jY94vFwn3ixWIRiUQCo9EIAFBRKuDBu/67zW5gvXK5jOFwuN+duMdhlEbR91v8bQS/Lr5iRP8EBEFAtVoN2LLZrDfgg2urqopkMumO/ffato1erxft7JDG8Pv9gbkX2UrdrpcF4Yw55h4/qqqeXd8+mAemUqlAEIQduz9jlssl+v1+4Ho4wxxs22agchdfjWHDt9BpkisWEU8kYIQyxu//FQA9ImPeqepFvnR9Neb87nK5XLCW+EiH7JZlYbVaoVAoAADkiIxxrlmWBdM0z6zYgzvirPltTNM8Wfx0OmUl5xRm5P/fDh6apgEACCFpsrWJ2HxZPl9T2N8AISQNYPYTxze8zZTzZeMAAAAASUVORK5CYII=)}
+.ovl .ib-pp{width:calc(var(--k)*20px);height:calc(var(--k)*20px)}
+.ovl .ib-pp[data-p=play]{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAuUlEQVR4nK2U4Q3CIBQGD9MF3go6gh2hK+AIEjdwk6YrlBHsCDKCXaEj1B9U0yhFWvwSQkLguAcBhc9IXpQCRmkeVMf9JkLnegZzoAAQwLl+E0iAAdhtWh1I4bGSDYoa3XT6Bu8zisFOdsgzeqXVQvvDzhslVtBqwXRhu8lIFtp3mio8b/X1l8bWztr6c3xVaaXxgOqsL0FQKmAJkgSKWcwTPaOri1vMo4BR3/N+EVuq/z1aNfXZH9sT5JwtTHH6MZcAAAAASUVORK5CYII=)}
+.ovl .ib-pp[data-p=play]:hover{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAArklEQVR4nK2U2Q3DIBBE30ZugBbSgimBFpwWUDpJKrBSA63EJZAWXAL5ILcdm8Pzs9JKPM0OsEJUoE4iQOAS6NoyghsAKzQAKHC3Qi8qll3h8Ylejmq16MibjUA5sKSMvFkHNgAqMSNvQA/T/khB2NcW9MxTyb5+bV3P2fW//azRtI0AdeqOn/33aImAOci3owTI/g/gqcWMDmOsaxAAAUIb6rbIILLdp5VHrV5sd55QJ+ZOJ8R7AAAAAElFTkSuQmCC)}
+.ovl .ib-pp[data-p=play]:active{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAlklEQVR4nGNkgID/DJQBRkYGBob/xh2rKDLlbEUYAxOFLoGDIWbQqvJQ6hhEimFEeW1VeShBA0kKI3yGMTEwMDC8x4FxGYZNHcmxZpK+evr7ewzT0cVZGGBOItIQBgYGBkFBhkx0PSykGAA3BAsgaBCKK/AAvGHkWrEaryswXPT+Pd5AysQvjWQQzFqyANQWRiiX4oINAKAiLqPqJJ9JAAAAAElFTkSuQmCC)}
+.ovl .ib-pp[data-p=pause]{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAoklEQVR4nM2U4QnCMBBG30kWuBV0BDuCK2SGruAmxRk6QjOCGcGukBHqj7RgJRpIIvjBEfiOvNzl4ISohTqJAIveHlzOxyKC8zOhP2EAFPB+LgIpEIBD0e2ETMRqNehjRZNVJqtZbwfSRGwKzg3fPH0FtVCcWuaLUvl3z6x25r1Ufu/9X2vNKvo96Oqh68ch520SYLH3ui0ydtKuNVnP6sX2BEymI0GviYdcAAAAAElFTkSuQmCC)}
+.ovl .ib-pp[data-p=pause]:hover{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAlklEQVR4nM2Uyw3DIBBE30ZugFpoIS0kLaSFdGK5BmpxCXELLmF9wFj+YIGAQ56EkGZhNYzQCh6lDhFAGZSXLevgRuAjdAAYcFOhF+O3R+H1C5ujWm4d/Z5+pbRko4Bxrs/R2mZkEhnF6nttJjfsWP2k/d/TGjtKHMqIaA07wnuG6Xv8LzEtIIBarZsio0i7jGTdqwfbArXZIDM6KSOJAAAAAElFTkSuQmCC)}
+.ovl .ib-pp[data-p=pause]:active{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAe0lEQVR4nGNkgID/DJQBRkYGBob/xh2rKDLlbEUYAxOFLoGDIWTQqvJQhlXloQTFiHbRvXsM04kRG3xhxMLAwMDwnoAibPLoYtR1ETWcNEgDGxtwrVjN8P49anrBJoZi0Pv3OAMpEyJPUAzJRYKCuAzDD6AmMkK5FBdsAFHTJ1hIbJH6AAAAAElFTkSuQmCC)}
 .ovl .ib-manual{width:calc(var(--k)*70px);height:calc(var(--k)*18px);background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEYAAAASCAYAAADmMahlAAAAAXNSR0IArs4c6QAAA9NJREFUWIXtmF9sU1Ucxz93rS3pGsNd0zhxyjYQq5jMrBoT//TFsgRmGJjNELMHCeASiA80Gn1BEomJD4Q9CAaipCNZTFyNEYMYtSYIPozQkpQJmZlrF4el3aQts/Sf7eZDb+96267/RGsi35dz+vud8z3f3++ec3/3VCALsaD9vyKca9VSMkSz2TzdYFENh9vt3gR4AQQpKaETYSudVmujtTUMXqeTIdGZS45bnX98vE5n3cSG7d2sfXc7AKGvPMy8/VnJcd0Th1gYn+aXPSOYHHuZHPiwaEz7+/0ACg6TYy+J6bkVee8UlpaWvhMEYZ1atojVvV7aD2ymZdOjRfZMNMlly5Flg8S3cWw32tZ7ZXPgk0skZ8NZv0pVel2NBgDD4POsfatHNutM99PS2wUgr9V93laVboW2KiAAnWazefoEAzVNzMfGsd1cffnjsmPaD2wmNR/Ff/wCAF1n96HSa0FKqmfLMSgINBlYqMhbCEPv4xhfeoLJXaM1xzGEA5fLhXLHVImVdkx+QLGpOVlY4RNtfeUpYlNzeLYcw3RykMldo5hODsr+y5YjrB/uJx26zcyhrwFYP9xP7Ocg/uMX6Dq7T07iPwk5MWKVR+nW0XFuHR1X2No+GuD6HofCluNLem/i3/8lRpuF9M0YANp1BkRRRKVSKdoc9KZWmaPj9E7iHj/xT39CFEVC9kt0n7cx/8GPRJ1TADJ3+JQLnU5XxFc1wsvdmndMPeg4vVPxO+7xA9AkHaV8GG0WMrdTpG8ssGZ4K74+O2uGt8p+vaUTX5+97HraToNizdzDqQU1JUZvfRjj68+V9BUGH/l8gvApFwC+PnvRjgFYjCaLeHRPPkjMNQtA4J1vAPhzNoLRZiF+5QaZSLyiznoSUYiaqlLU/TvRV78osrcd7uH6G98WT5AqT9GOuTqH+NqzLMYziuokDjxG7EpQrko5TfP2CdoO93BPuwH/wXPFWjUa0Epczc0rV7tKKHWU/s5dQFVmfvzgOeKAbsjMYihOwnENgOY3nyEzE0HMn++4RloaW6QpGEWl15RcRyMFIkr9cnqqRZPc+5dvSar79HKSlqKpsmNXj2wDYNH/h9y/4yiIX63w1JCcVS92sOqFhwBI/xYtuXU1T7ei2/GIcl7vBgBS7iD696yoH9CTcgeV86WjlPNH9v8gu2JjXlaPbCPx/a9ZPklDPjd5ycwh5Q4SG52sOr66q1LijI/EGV/ZMamLAVIXAzVzVwogP1GVNNSLJuUr5y4khIW7fzssw+XKfl4IgtAiSDaR7M0y1Ehh/wUIgtAChP8CE2RYJgBehkMAAAAASUVORK5CYII=)}
 .ovl .ib-manual:hover{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEYAAAASCAYAAADmMahlAAAAAXNSR0IArs4c6QAAA4JJREFUWIXtmF1oU2cYx39vEk/jOcHm9GKbHYhTxA2EYrsLKeiuOi16odCiiFDRC0dhNxZWNslVESxj2V29ELINRBgKShEmFhTtCAXpRhG0oPWi2opha1KbtKEfeXdxPnKSc3rS1Epl+r95P57P95/nfc9DBAb0svF9RdoaQyYZOjC2zkm9C2gBngEIk5SpKbrRu9vXO7F1Q7r3KnX0YpIzHHJen3Tv1VU7VjoaUfuOADD/+wizp6556kVzPSzcHSN36FciyU6yzX0uHTXRBlDiI5LspDCaWtbvWkFKOSCE2B6q1lBNtKEcbXA7nM6T0WKu/U2PuwhsidrrfHyQwtN/VhTLSTYADZvt2FasaK5nRb68cvODALYBY1N0V2XoxKbHXbz+4idfHTXRRmHiNfnYbQBqJ88hasNgkjpdfx7KDloYz1T0Ww6loxHlzB7PSqyEOnqRUrKmFeM80OLISzux8l80fHYviyMvma4/b1+lSLLTlme0GNrNk8hU1r422s2TLP09ST52m9rJczaJbxNVEzN76prrnvtVjEWSVTEAwd31/kk1fmrPrTfJqrS57/8gmuthtvM687/9BR7VuBZwEPMmLUzAxz7oqpqFu+OATkDXTLugba8mWpHT8yyNZYgkvyWjxYkkT9jyDe1NZLR4Wc4KEDbXGqGGzWUVnCLbfLmqE62oYnSz81E6dqH2fe2pE82dLVnn4w/IxwYByGhx1EQrhYksAMHdHwNQSOddfjYc2MbCrWcA5A4ZlVkY/Rc10crivefIVK5ivn5E6I4uzg82MbruXzE6QP8E9P/iFg61w57ST/1GYKOuQyjoIk38OYnyYwvMLBpxQ0Fj/OFLuPOCGkUBoMbKqWsIhtqp2fUR7O8v7ltQFAiHjXiqWvTndxYvOBgrVkwFYnwRCCxvf2wQAXChCV7Nwc+PjP1LzfAoY9gFg8Z40Wy+LzS5c3oxC1HFO46iQHjJkKla0V+18Camej82/J4YC85nAGBrBL5LGuvcfKm9UpqTvH8YMZyC5zPIh4cR+24s71srebJWDbuPkU0D1Vl+8xny+BbDyZMsnB526xz8BNm90zvwwCvYqiF3RIx5z2hRGPvcGC35vnsltvL+V4gr48bczKESXDG8dIZb7D5m9cT8D+EkJrDCR/p9Q1p8+NuhCCklAEKIOmHu6aZgaj0TexcghKgD0v8BgtI/VlBo2P4AAAAASUVORK5CYII=)}
 .ovl .ib-manual:active{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEYAAAASCAYAAADmMahlAAAAAXNSR0IArs4c6QAAA9BJREFUWIXtmF9oG3UcwD9XY7YmsUlaY0O7ObMx7IP60JsEp2sLdvNhD/alIFJY+zCqwh4WOpTBGLUgPoz1TSlD7WDIoCCdTAa2wgz4ICaK063D0n+bdF1nc2mWXv70kviQXHKXP21ilMj083K57+/7/773u7sIpLHnHf+rSOrRkGmGXRTFuRonVXP8fv9hYB5AyDQlMCV+WJVTo9uJ6Y1nAYj77yNful1UzzbayeZvEhsf38AyJBI+5y/QMfW1Aeh8WIZEkisbJf3+HRz2v6c2x2+o9PYx9bVhFJsL5KmIQvDktwXyhjNu6hp3Zs+j39wh+SBSVixtswFotWRjq7Fso51l+SqWWzFSqdSUIAj7DGVpa5Av3S64ag1n3IRGvi+qr8pNfW0kgzGiVxcAsH7wMkK9AdtoJ6mIwvrp7yCvUIPLum1B+etGtxPjodaik1gJmsZIua1nC0yDIsaXdhfItQUpS0HCZ6+n5eM9Or2drz6NshRk/e2rWIa7CJ+9jmW4C6R08GD/JOZTB0mFYshj6eLMpw6SWAwSnbiF9aOjrL/zVekE5QZQlKy/ssm7b3KNKdOPPObPJqzScO4IoaGvi+qrTTINiiQD6VvosWdsW8YwuHJZ2sZ72Ly5SnTiFgCRy79iG+9B/vQn4t4lyFysZCCS1flL5NVvKCGvCPMW9vVFpiZycxUJMJuNSBkd1d4xKKLImyj3w9QPd7HQP0nLcFd23eluZaF/sqAIJePDApj22HQxY0tBljMTXC6aidm+NZbu/ThOvFJ0zZVXfPCLX5Au+iCRYOH1z3B4OlDWZAB27GsCSSIZiqTjJhLZ+KYXmpF9dwFYOe0FYHNxDcfA80Ru3CPxx8PCXONxiMXS8o0nic2vsXzyy4oakU9Fm294epbw9GyBfNeFXn4/PlHSznVlQHce+XkZ+7EDJB/GdHL7sQPZpmh5cN7Lrgu9PL7bVnXB5VLxU6lS1ELUiZEu+gBwvv8asbk1na665vB0FPhR7oWoe2LHP51ultweU+kurqElmdzW3hqPE49Gs3otzRbmT1wGoEna0Nlb43FdTu1eDyH/HZS5dVxXBvix43xJ33WyjDmRqKoeqpmYlrcO4XzzRQDk2dWiOk1Hn2PPu0d0MtUmMDVD2yd9mPY/RWBqpqi9uq5txOLINdq9HlY+/0HnL/93u9ej8xWYmmFx5FrZ9QnAXlEU58boLdvoUWWQCXw+H/o33ypH75FA85Jn0L6C7O3urlFGtWd+elp7Kgn//+2Qw+dLPxUFQWgUMjI76S/LQC0T+zcgCEIjIP0JfM2T8ujyGRwAAAAASUVORK5CYII=)}
@@ -182,7 +189,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <button class="b pri" id="btnPip">開啟置頂小浮窗</button>
     </div>
     <p class="mut" id="pipHint" style="margin:8px 0 0"></p>
-    <p class="mut" style="margin:4px 0 0">浮窗可以直接拖曳視窗邊緣調整大小，內容會跟著等比縮放；浮窗上的「＋」是設定，「重置」清除統計。</p>
+    <p class="mut" style="margin:4px 0 0">浮窗可以直接拖曳視窗邊緣調整大小，內容會跟著等比縮放；浮窗上的「＋」是設定，「▶／⏸」開始或暫停統計，「重置」清除統計。</p>
   </section>
 
   <section class="card">
@@ -249,7 +256,7 @@ const HF_BASE = 'https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/reso
 const TICK_MS = 200;
 const AVERAGING_WINDOW_SEC = 600.0;
 const EXP_ROUNDING_DIGITS = -2;
-const MAIN_WINDOW_BASE_WIDTH = 245;   // 字體 12px 時的基準寬度（原 225，加寬一點以放得下「(約17:56)」）
+const MAIN_WINDOW_BASE_WIDTH = 268;   // 字體 12px 時的基準寬度（原 225，加寬一點以放得下「(約17:56)」）
 const BASE_FONT_PX = 12, FONT_MIN = 8, FONT_MAX = 32;
 const REBASE_TICKS = 25;              // 連續 25 次（約 5 秒）讀數與追蹤值對不上時，以新讀數重新當基準
 const LV_OFFSET = [37, 19, 85, 30];
@@ -628,9 +635,10 @@ function formatTimeRemaining(sec) {
 const baseExpForLevel = (() => { const a = []; let t = 0; for (let i = 0; i < EXP_REQ.length; i++) { a.push(t); t += EXP_REQ[i]; } return a; })();
 
 class Tracker {
-  constructor(onChange) { this.onChange = onChange; this.onReset = null; this.lines = {}; this.reset(); }
+  constructor(onChange) { this.onChange = onChange; this.onReset = null; this.lines = {}; this.paused = false; this.pauseAt = 0; this.reset(); }
   reset() {
     // 楓幣：mesoBase = 最近一次採用的讀數；mesoTotal = 開始追蹤後累積「增加」的楓幣（花費不扣除）
+    this.rebase = false; this.mesoRebase = false;   // 暫停後恢復：下一筆讀數只當基準，不把暫停期間的經驗/楓幣算進去
     this.mesoBase = null; this.mesoCur = 0; this.mesoPend = null; this.mesoPendN = 0; this.mesoPendT = 0; this.mesoTotal = 0; this.mesoSec = 0;
     this.mesoHist = []; this.mesoHistT = 0; this.mesoLastTick = 0; this.mesoWasIdle = false; this.mesoOpen = false; this.mesoStats = null;
     // lvl/exp：最近一次「可信」的讀數；total：從開始追蹤累積的經驗增量（不依賴等級經驗表，升等時才不會算錯）
@@ -642,7 +650,24 @@ class Tracker {
     this.onChange();
   }
   setStatus(text) { if (this.lastData === null || Settings.d.show_player_info) this.lines.player = text; this.onChange(); }
-  refresh() { this.computeMeso(Date.now() / 1000, Settings.d.idle_timeout_min * 60); if (this.lastData) this.update(...this.lastData); else this.onChange(); }
+  // 暫停／繼續：暫停期間不讀取、不計時；繼續時把所有時間戳往後平移暫停的秒數，
+  // 並且以「繼續後的第一筆讀數」當新基準，暫停期間賺的經驗/楓幣不計入，平均值與閒置判斷也不會被暫停時間影響
+  pause() { if (this.paused) return; this.paused = true; this.pauseAt = Date.now() / 1000; this.onChange(); }
+  resume() {
+    if (!this.paused) return;
+    const d = Date.now() / 1000 - this.pauseAt; this.paused = false;
+    if (this.lvl !== -1) {
+      this.lastGain += d; this.sessionStart += d; this.lastHistUpdate += d; this.lastTick = 0;
+      this.hist = this.hist.map(([t, e]) => [t + d, e]); this.rebase = true;
+    }
+    if (this.mesoBase !== null) {
+      this.mesoHist = this.mesoHist.map(([t, e]) => [t + d, e]); this.mesoHistT += d; this.mesoLastTick = 0;
+      this.mesoPend = null; this.mesoPendN = 0; this.mesoRebase = true;
+    }
+    this.onChange();
+  }
+  togglePause() { if (this.paused) this.resume(); else this.pause(); }
+  refresh() { if (this.paused) { this.onChange(); return; } this.computeMeso(Date.now() / 1000, Settings.d.idle_timeout_min * 60); if (this.lastData) this.update(...this.lastData); else this.onChange(); }
   // 每個 tick 都會呼叫：value = 這次讀到的楓幣；道具欄沒開／讀不到時傳 null（不記錄，但時間仍照算，
   // 下次打開道具欄時，這段期間賺到的楓幣會一次補進來）
   // 防誤判：楓幣數字一旦讀錯一個位數，差距會是幾十萬～幾千萬。所以
@@ -651,6 +676,7 @@ class Tracker {
   //   · 減少：持續 MESO_DOWN_SEC 秒才採用為新基準（避免讀小又讀回來，被當成賺到）
   // skip = true：道具欄還開著，但這次畫面被擋住／信心太低，整次不採用（也不會打斷已經在確認中的數字）
   tickMeso(value, skip) {
+    if (this.paused) return;
     const now = Date.now() / 1000, idleSec = Settings.d.idle_timeout_min * 60;
     const MESO_BIG = 200000, MESO_BIG_SEC = 6, MESO_DOWN_SEC = 3;
     this.mesoOpen = (value !== null && value !== undefined) || !!skip;
@@ -658,6 +684,8 @@ class Tracker {
       this.mesoCur = value;
       if (this.mesoBase === null) {                         // 第一次讀到：當作基準
         this.mesoBase = value; this.mesoHist = [[now, 0]]; this.mesoHistT = now; this.mesoLastTick = now;
+      } else if (this.mesoRebase) {                        // 剛從暫停繼續：重設基準，不計入暫停期間的收入
+        this.mesoBase = value; this.mesoRebase = false; this.mesoPend = null; this.mesoPendN = 0;
       } else if (value !== this.mesoBase) {
         if (this.mesoPend === value) this.mesoPendN++; else { this.mesoPend = value; this.mesoPendN = 1; this.mesoPendT = now; }
         const up = value > this.mesoBase, big = up && value - this.mesoBase > MESO_BIG;
@@ -696,10 +724,12 @@ class Tracker {
     this.mesoStats = { avg10, avgHr, total: this.mesoTotal, act: this.mesoSec, open: this.mesoOpen, idle };
   }
   update(level, experience, percent) {
+    if (this.paused) return;
     this.lastData = [level, experience, percent];
     if (level < 0 || level >= EXP_REQ.length) return;
     if (experience < 0 || experience > EXP_REQ[level]) return;
     const now = Date.now() / 1000, idleSec = Settings.d.idle_timeout_min * 60, req = EXP_REQ[level];
+    if (this.rebase && this.lvl !== -1) { this.lvl = level; this.exp = experience; this.rejects = 0; this.rebase = false; }   // 剛從暫停繼續：以這筆當新基準
 
     if (this.lvl === -1) {                                   // 第一筆讀數：當作基準
       this.lvl = level; this.exp = experience; this.total = 0;
@@ -792,7 +822,7 @@ class Overlay {
       <div class="tb"><span class="t"></span><button class="ib ib-open" data-a="settings" title="設定"></button><button class="ib ib-close" data-a="close" title="關閉"></button></div>
       <div class="body vmain">
         <div class="ln" data-l="player"></div><div class="ln" data-l="rate"></div><div class="ln" data-l="meso"></div><div class="ln" data-l="eta"></div><div class="ln" data-l="active"></div>
-        <div class="rw"><span class="ck" data-l="clock"></span><button class="ib ib-reset" data-a="reset"></button></div>
+        <div class="rw"><span class="ck" data-l="clock"></span><span class="bg"><button class="ib ib-pp" data-a="toggle" data-p="pause" title="暫停"></button><button class="ib ib-reset" data-a="reset"></button></span></div>
       </div>
       <div class="body vset">
         <label class="cb" data-c="show_player_info"><i class="bx"></i><span>顯示系統/玩家資訊</span></label>
@@ -839,6 +869,7 @@ class Overlay {
       case 'settings': this.setView(this.view === 'set' ? 'main' : 'set'); break;
       case 'confirm': this.setView('main'); break;
       case 'close': this.h.close(); break;
+      case 'toggle': this.h.toggle(); break;
       case 'reset': this.h.reset(); break;
       case 'manual': this.h.manual(); break;
       case 'auto': this.h.auto(); break;
@@ -876,7 +907,10 @@ class Overlay {
   }
   render() {
     const S = Settings.d, r = this.root, L = this.h.lines();
-    $('.t', r).textContent = this.view === 'set' ? ' 設定' : ' 經驗值計算器';
+    const paused = !!this.h.paused();
+    $('.t', r).textContent = this.view === 'set' ? ' 設定' : (paused ? ' 經驗值計算器(暫停)' : ' 經驗值計算器');
+    const pp = $('.ib-pp', r), want = paused ? 'play' : 'pause';   // 暫停中顯示「開始」圖示，執行中顯示「暫停」圖示
+    if (pp && pp.dataset.p !== want) { pp.dataset.p = want; pp.title = paused ? '開始' : '暫停'; }
     const set = (n, t) => { const el = $(`[data-l=${n}]`, r); if (el.textContent !== t) el.textContent = t; };
     set('player', L.player); set('rate', L.rate); set('meso', L.meso); set('eta', L.eta); set('active', L.active);
     const vis = (n, on) => { $(`[data-l=${n}]`, r).style.display = on ? '' : 'none'; };
@@ -913,7 +947,7 @@ function frameSource() {
 // ===================================================================================
 let lastDbg = 0;
 async function tick() {
-  if (cap.busy || !cap.active) return; cap.busy = true;
+  if (cap.busy || !cap.active || tracker.paused) return; cap.busy = true;
   try {
     const src = frameSource(); if (!src || !src.w) return;
     if (!extractor) { tracker.setStatus(recognizer ? '準備中...' : '辨識模型載入中...'); return; }
@@ -980,7 +1014,7 @@ async function startCapture() {
   const s = cap.track.getSettings();
   $('#capInfo').textContent = `分享中：${s.width || '?'}×${s.height || '?'}`;
   $('#btnStart').disabled = true; $('#btnStop').disabled = false;
-  tracker.reset(); tracker.setStatus('已連接遊戲視窗');
+  tracker.resume(); tracker.reset(); tracker.setStatus('已連接遊戲視窗');
 }
 function stopCapture(silent) {
   cap.active = false;
@@ -1166,7 +1200,7 @@ function renderStats() {
   else if (st.etaSec < 60) { set('stEta', '不到1分鐘'); set('stEtaS', finishTimeText(st.etaSec).replace(/[()]/g, '')); }
   else { set('stEta', fmtDur(st.etaSec).replace(/\d+秒$/, '')); set('stEtaS', st.etaSec < 86400 ? finishTimeText(st.etaSec).replace(/[()]/g, '') : ''); }
   set('stTotal', fmtInt(st.total)); set('stTotalS', pc(st.pctTotal));
-  set('stTime', fmtDur(st.act)); set('stTimeS', st.idle ? '目前閒置中（暫停計時）' : '');
+  set('stTime', fmtDur(st.act)); set('stTimeS', tracker.paused ? '已暫停' : st.idle ? '目前閒置中（暫停計時）' : '');
 }
 
 async function boot() {
@@ -1176,6 +1210,8 @@ async function boot() {
   tracker.onReset = () => { if (extractor) extractor.invalidate(); };
   overlay = new Overlay({
     lines: () => tracker.lines,
+    paused: () => tracker.paused,
+    toggle: () => tracker.togglePause(),
     settingsChanged: () => { tracker.refresh(); overlay.layout(); },
     scaleRequested: k => requestScale(k),
     viewChanged: (v, k) => {              // 進出設定畫面時，視窗高度跟著內容調整（維持目前縮放）
