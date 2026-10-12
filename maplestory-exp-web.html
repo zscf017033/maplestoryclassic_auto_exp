@@ -134,6 +134,17 @@ ul.tips{margin:6px 0 0;padding-left:20px;color:var(--mut);font-size:13.5px}
 .stat .v{font-size:20px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;word-break:break-all}
 .stat .s{font-size:12px;color:var(--mut);margin-top:2px;min-height:1.2em}
 .stat.hl .v{color:var(--ac)}
+.hist{margin-top:12px;border:1px solid var(--bd);border-radius:10px;padding:8px 12px;background:rgba(127,127,127,.04)}
+.hist>summary{cursor:pointer;font-weight:600}
+.hist .hbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.hist .hwrap{overflow-x:auto;max-height:340px;overflow-y:auto}
+.hist table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hist th,.hist td{padding:4px 8px;border-bottom:1px solid var(--bd);text-align:right}
+.hist th:first-child,.hist td:first-child{text-align:center;width:28px}
+.hist th:nth-child(2),.hist td:nth-child(2),.hist th:nth-child(3),.hist td:nth-child(3){text-align:left}
+.hist th{color:var(--mut);font-weight:500;position:sticky;top:0;background:var(--card)}
+.hist .hx{cursor:pointer;color:var(--mut);border:0;background:none;font-size:14px}
+.hist .hx:hover{color:var(--err)}
 /* 手動校正對話框 */
 dialog#calDlg{border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);padding:16px;max-width:96vw}
 dialog::backdrop{background:rgba(0,0,0,.5)}
@@ -205,6 +216,25 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <div class="stat"><div class="k">總練功時間</div><div class="v" id="stTime">—</div><div class="s" id="stTimeS"></div></div>
     </div>
     <p class="mut" style="margin:10px 0 0">依「開始追蹤後的實際練功時間」平均計算（閒置時間不計入）；按浮窗上的「重置」會清除統計。<br>楓幣：只有道具欄（任何分頁都可以，要看得到楓幣欄位）開著時才會讀取；道具欄可以隨意拖曳、拉高或縮短，程式會自動追蹤楓幣欄的位置，不必一直開著；關閉期間賺到的楓幣，會在下次打開道具欄時一次補進來。只計算「增加」的楓幣，買東西、丟楓幣不會扣掉；賣道具、交易、領倉庫的收入會被算進去。</p>
+      <p class="mut" style="margin:10px 0 0">目前地圖：<b id="stMap" style="color:var(--tx)">—</b> <span id="stMapS"></span></p>
+    <details class="hist" id="histBox">
+      <summary>📜 練功紀錄（<span id="histCount">0</span> 筆）</summary>
+      <div class="hbar">
+        <button class="b" id="btnHistDelSel" style="padding:4px 12px;font-size:13px" disabled>刪除選取 (0)</button>
+        <button class="b" id="btnHistClear" style="padding:4px 12px;font-size:13px">清除全部</button>
+        <span class="mut" id="histSum"></span>
+      </div>
+      <div class="hwrap"><table>
+        <thead><tr><th><input type="checkbox" id="histAll" title="全選／取消全選（這一頁）"></th><th>開始時間</th><th>地圖</th><th>練功時間</th><th>等級</th><th>累積經驗</th><th>每十分經驗</th><th>每小時經驗</th><th>每小時楓幣</th><th></th></tr></thead>
+        <tbody id="histBody"></tbody>
+      </table></div>
+      <div class="hbar" id="histPager" style="justify-content:center;display:none">
+        <button class="b" id="histPrev" style="padding:3px 12px;font-size:13px">‹ 上一頁</button>
+        <span class="mut" id="histPageTxt"></span>
+        <button class="b" id="histNext" style="padding:3px 12px;font-size:13px">下一頁 ›</button>
+      </div>
+      <p class="mut" style="margin:8px 0 0;font-size:12.5px">按浮窗「重置」或重新連接視窗時，會把該段練功存成一筆（練功不到 30 秒不記錄）；地圖名稱由螢幕左上角的小地圖辨識（連續讀到 3 次才算數，只計入練功中的時間，不同地圖會用滑鼠移到名稱上看明細）；執行中每 30 秒自動備份，意外關閉分頁後下次開啟會自動補存。紀錄只存在這個瀏覽器，最多保留 200 筆。</p>
+    </details>
   </section>
 
   <section class="card">
@@ -365,6 +395,7 @@ class Recognizer {
 // ===================================================================================
 const cropCv = { lv: document.createElement('canvas'), exp: document.createElement('canvas') };
 const cropCtx = { lv: cropCv.lv.getContext('2d', { willReadFrequently: true }), exp: cropCv.exp.getContext('2d', { willReadFrequently: true }) };
+cropCv.map = document.createElement('canvas'); cropCtx.map = cropCv.map.getContext('2d', { willReadFrequently: true });
 cropCv.meso = document.createElement('canvas'); cropCtx.meso = cropCv.meso.getContext('2d', { willReadFrequently: true });
 const invCv = document.createElement('canvas'), invCtx = invCv.getContext('2d', { willReadFrequently: true });   // 掃描楓幣欄用（整張畫面或附近小範圍）
 const fullCv = document.createElement('canvas'); const fullCtx = fullCv.getContext('2d', { willReadFrequently: true });
@@ -431,6 +462,51 @@ function scanMesoBoxes(d, rw, rh) {                // d: RGBA；回傳 { best: {
 }
 // MESO-SCAN-END
 
+// MAP-SCAN-BEGIN
+const clampN = (v, a, b) => Math.min(b, Math.max(a, v));
+// 小地圖標題區（左上角）：淺藍底(約154,187,206)＋白字。回傳「地圖名稱那一行」的文字框，找不到回傳 null
+function scanMapName(d, rw, rh, sc) {
+  const n = rw * rh, B = new Uint8Array(n);
+  for (let i = 0, p = 0; i < n; i++, p += 4) {
+    const r = d[p], g = d[p + 1], b = d[p + 2];
+    B[i] = (Math.abs(r - 154) <= 24 && Math.abs(g - 187) <= 24 && Math.abs(b - 206) <= 24 && b > r + 25) ? 1 : 0;
+  }
+  // 每列的淺藍像素數；標題區 = 由上往下第一段連續「藍色夠多」的列
+  const T = 40 * sc, cnt = new Int32Array(rh);
+  for (let y = 0; y < rh; y++) { let c = 0; const o = y * rw; for (let x = 0; x < rw; x++) c += B[o + x]; cnt[y] = c; }
+  // 由上往下找「連續藍色夠多的列」，取第一段高度合理（約 44*sc，容許 30~90*sc）的 = 標題區；
+  // 畫面最上緣偶爾有一兩列相近顏色（天空等），高度不合理的段落直接跳過
+  let y0 = -1, y1 = -1;
+  for (let y = 0, s0 = -1, last = -1; y <= rh && y0 < 0; y++) {
+    if (y < rh && cnt[y] >= T) { if (s0 < 0) s0 = y; last = y; }
+    else if (s0 >= 0 && (y >= rh || y - last > 2)) { const h = last - s0 + 1; if (h >= 26 * sc && h <= 100 * sc) { y0 = s0; y1 = last; } s0 = -1; }
+  }
+  if (y0 < 0) return null;
+  sc = clampN((y1 - y0 + 1) / 44, 0.5, 4);                  // 標題區高度約 44px×縮放 → 反推實際縮放（手動校正模式的縮放提示不一定準）
+  // 標題區左右邊界
+  let xl = rw, xr = -1;
+  for (let y = y0; y <= y1; y++) { const o = y * rw; for (let x = 0; x < rw; x++) if (B[o + x]) { if (x < xl) xl = x; break; } for (let x = rw - 1; x >= 0; x--) if (B[o + x]) { if (x > xr) xr = x; break; } }
+  if (xr - xl < 60 * sc) return null;
+  // 文字（白字）：只看圖示右側，標題區內
+  const tx0 = Math.round(xl + 46 * sc), tx1 = xr - 1;
+  const white = (x, y) => { const p = (y * rw + x) * 4; return d[p] >= 225 && d[p + 1] >= 225 && d[p + 2] >= 225; };
+  const rowHas = [];
+  for (let y = y0; y <= y1; y++) { let c = 0; for (let x = tx0; x <= tx1; x++) if (white(x, y)) c++; rowHas.push(c >= 1); }
+  // 把有字的列分成幾行，取最後一行（= 地圖名稱；上面那行是地區名稱）
+  const groups = []; let s = -1;
+  for (let i = 0; i <= rowHas.length; i++) {
+    if (i < rowHas.length && rowHas[i]) { if (s < 0) s = i; }
+    else if (s >= 0) { if (i - s >= Math.max(5, 7 * sc)) groups.push([s + y0, i - 1 + y0]); s = -1; }
+  }
+  if (!groups.length) return null;
+  const [ga, gb] = groups[groups.length - 1];
+  let ax = rw, bx = -1;
+  for (let y = ga; y <= gb; y++) for (let x = tx0; x <= tx1; x++) if (white(x, y)) { if (x < ax) ax = x; if (x > bx) bx = x; }
+  if (bx < 0 || bx - ax < 8 * sc) return null;
+  return { x: ax, y: ga, w: bx - ax + 1, h: gb - ga + 1, band: [xl, y0, xr, y1], lines: groups.length, sc };
+}
+// MAP-SCAN-END
+
 function sameBytes(a, b) { if (!a || !b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; }
 
 async function dataUriToGray(uri) {
@@ -446,13 +522,13 @@ class Extractor {
   constructor() {
     this.scale = 0; this.size = ''; this.manual = false; this.nextTry = 0; this.fullTried = false; this.detecting = false;
     this.lvBox = [0, 0, 1, 1]; this.expBox = [0, 0, 1, 1];
-    this.lvCache = null; this.expCache = null; this.mesoCache = null;
+    this.lvCache = null; this.expCache = null; this.mesoCache = null; this.mapCache = null; this.mapNext = 0; this.mapSkip = '';
     this.mbox = null; this.mNext = 0; this.mSize = ''; this.dbgMesoN = 0; this.mesoSkip = ''; this.mesoTint = 0;   // 楓幣欄位置 {x,y,w,h}、下次整張掃描時間、畫面大小、候選框數（除錯用）
     this.dbg = { lvText: '', lvConf: 0, expText: '', expConf: 0, lvImg: null, expImg: null, mesoText: '', mesoConf: 0, mesoImg: null };
   }
   get available() { return this.scale > 0; }
   setManualBoxes(lv, ex) { this.manual = true; this.lvBox = lv.map(Math.round); this.expBox = ex.map(Math.round); this.scale = 1.0; this.invalidate(); }
-  invalidate() { this.lvCache = null; this.expCache = null; this.mesoCache = null; }
+  invalidate() { this.lvCache = null; this.expCache = null; this.mesoCache = null; this.mapCache = null; this.mapNext = 0; }
   clearManualBoxes() { this.manual = false; this.scale = 0; this.size = ''; this.nextTry = 0; this.fullTried = false; }
 
   // 依畫面大小自動偵測 UI 縮放與位置（多尺度樣板比對，與桌面版相同）
@@ -572,6 +648,36 @@ class Extractor {
     return res;
   }
 
+  // ---------------- 地圖名稱（小地圖標題區第二行）----------------
+  // 小地圖視窗的寬度會隨地圖變，但名稱固定在左上角圖示右邊；所以不是用固定座標，
+  // 而是先找出淺藍色標題區（左右邊界跟著視窗寬度走），再在區內找最後一行白字。每秒掃描一次。
+  cropMap(src) {
+    if (!this.available) return null;
+    const now = performance.now(); if (now < this.mapNext) return null; this.mapNext = now + 1000;
+    const sc = this.scale > 0 ? this.scale : 1;
+    const rw = Math.min(src.w, Math.round(520 * sc)), rh = Math.min(src.h, Math.round(200 * sc));
+    if (rw < 60 || rh < 40) return null;
+    const b = scanMapName(this.grab(src, 0, 0, rw, rh).data, rw, rh, sc);
+    if (!b) { this.mapSkip = '找不到小地圖（可能被收起或關閉）'; return null; }
+    this.mapSkip = '';
+    const pad = Math.max(2, Math.round(3 * b.sc)), x1 = Math.max(b.band[0], b.x - pad), x2 = Math.min(b.band[2] + 1, b.x + b.w + pad), y1 = Math.max(b.band[1], b.y - pad), y2 = Math.min(b.band[3] + 1, b.y + b.h + pad);
+    const w = x2 - x1, h = y2 - y1; if (w < 8 || h < 6) return null;
+    const c = cropCv.map, cx = cropCtx.map; if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    cx.drawImage(src.img, x1, y1, w, h, 0, 0, w, h);
+    return cx.getImageData(0, 0, w, h);
+  }
+  async readMap(img) {
+    if (!img) return { name: '', conf: 0 };
+    this.dbg.mapImg = img;
+    if (this.mapCache && sameBytes(this.mapCache.arr, img.data)) return this.mapCache.res;
+    let r; try { r = await this.rec.recognize(img); } catch (e) { console.warn('MAP recognition failed', e); return { name: '', conf: 0 }; }
+    const name = r.text.replace(/[\s\u3000]/g, '');
+    this.dbg.mapText = name; this.dbg.mapConf = r.conf;
+    const res = (name.length >= 2 && name.length <= 20 && r.conf >= 0.8) ? { name, conf: r.conf } : { name: '', conf: r.conf };
+    this.mapCache = { arr: new Uint8ClampedArray(img.data), res };
+    return res;
+  }
+
   // 同步擷取兩個小方塊（在 await 之前就取好，避免影格被關閉）
   crop(src, which) {
     let [x1, y1, x2, y2] = which === 'lv' ? this.lvBox : this.expBox;
@@ -634,15 +740,64 @@ function formatTimeRemaining(sec) {
 }
 const baseExpForLevel = (() => { const a = []; let t = 0; for (let i = 0; i < EXP_REQ.length; i++) { a.push(t); t += EXP_REQ[i]; } return a; })();
 
+// 練功紀錄：每段練功結束（重置／重新連接）時存一筆摘要；執行中定期備份「進行中的這段」，意外關閉也不會遺失
+const HIST_KEY = 'exp_history_v1', HIST_LIVE_KEY = 'exp_history_live_v1', HIST_MAX = 200, HIST_MIN_SEC = 30;
+const ExpHistory = {
+  list: [],
+  load() { try { const j = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); this.list = Array.isArray(j) ? j.filter(e => e && Number.isFinite(e.start) && Number.isFinite(e.total)) : []; } catch (e) { this.list = []; } },
+  save() { try { localStorage.setItem(HIST_KEY, JSON.stringify(this.list)); } catch (e) { /* ignore */ } },
+  add(e) {
+    if (!e) return;
+    const k = this.list.findIndex(x => x.start === e.start); if (k >= 0) this.list[k] = e; else this.list.push(e);
+    this.list.sort((a, b) => a.start - b.start);
+    if (this.list.length > HIST_MAX) this.list.splice(0, this.list.length - HIST_MAX);
+    this.save(); this.clearLive();
+    if (typeof renderHistory === 'function') renderHistory();
+  },
+  remove(start) { this.list = this.list.filter(e => e.start !== start); this.save(); if (typeof renderHistory === 'function') renderHistory(); },
+  removeMany(starts) { this.list = this.list.filter(e => !starts.has(e.start)); this.save(); if (typeof renderHistory === 'function') renderHistory(); },
+  clear() { this.list = []; this.save(); if (typeof renderHistory === 'function') renderHistory(); },
+  saveLive(e) { if (!e) return; try { localStorage.setItem(HIST_LIVE_KEY, JSON.stringify(e)); } catch (x) { /* ignore */ } },
+  clearLive() { try { localStorage.removeItem(HIST_LIVE_KEY); } catch (x) { /* ignore */ } },
+  recover() {     // 開啟頁面時，上次沒正常結束的那段補存進紀錄
+    try { const j = JSON.parse(localStorage.getItem(HIST_LIVE_KEY) || 'null'); if (j && Number.isFinite(j.start) && j.act >= HIST_MIN_SEC && j.total > 0) this.add(j); else this.clearLive(); } catch (e) { this.clearLive(); }
+  },
+};
+
 class Tracker {
   constructor(onChange) { this.onChange = onChange; this.onReset = null; this.lines = {}; this.paused = false; this.pauseAt = 0; this.reset(); }
+  // 地圖名稱：連續讀到 3 次（約 3 秒）一樣才算數，避免辨識偶爾讀錯就換地圖
+  noteMap(name) {
+    if (!name) return;
+    if (name === this.mapCand) this.mapN++; else { this.mapCand = name; this.mapN = 1; }
+    if (this.mapN >= 3) this.curMap = name;
+  }
+  // 這段練功待過的地圖（依練功秒數由多到少）；只差一個字的名稱視為同一張（辨識誤差）
+  mapSummary() {
+    const lev = (a, b) => { const m = a.length, n = b.length; let p = Array.from({ length: n + 1 }, (_, j) => j); for (let i = 1; i <= m; i++) { const c = [i]; for (let j = 1; j <= n; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = c; } return p[n]; };
+    const out = [];
+    for (const [n, sec] of Object.entries(this.mapSec).filter(e => e[1] >= 1).sort((a, b) => b[1] - a[1])) {
+      const k = out.find(o => Math.min(o[0].length, n.length) >= 3 && lev(o[0], n) <= 1);
+      if (k) k[1] += sec; else out.push([n, sec]);
+    }
+    return out.slice(0, 5).map(([n, sec]) => [n, Math.round(sec)]);
+  }
+  // 目前這段練功的摘要（練功不到 HIST_MIN_SEC 秒或沒有經驗增量時回傳 null）
+  snapshot() {
+    const st = this.stats; if (!st || this.lvl === -1 || !this.startWall || !(this.total > 0) || st.act < HIST_MIN_SEC || st.avgHr === null || st.avg10 === null) return null;
+    const ms = this.mesoStats, maps = this.mapSummary();
+    return { map: maps.length ? maps[0][0] : null, maps, start: this.startWall, end: Date.now(), act: st.act, lv0: this.lv0, lv1: this.lvl, total: this.total, avg10: st.avg10, avgHr: st.avgHr, pctHr: st.pctHr, mesoTotal: ms ? ms.total : null, mesoHr: ms && ms.avgHr !== null ? ms.avgHr : null };
+  }
   reset() {
+    if (this.total > 0) ExpHistory.add(this.snapshot());   // 先把上一段存起來再清掉
+    ExpHistory.clearLive();
     // 楓幣：mesoBase = 最近一次採用的讀數；mesoTotal = 開始追蹤後累積「增加」的楓幣（花費不扣除）
     this.rebase = false; this.mesoRebase = false;   // 暫停後恢復：下一筆讀數只當基準，不把暫停期間的經驗/楓幣算進去
     this.mesoBase = null; this.mesoCur = 0; this.mesoPend = null; this.mesoPendN = 0; this.mesoPendT = 0; this.mesoTotal = 0; this.mesoSec = 0;
     this.mesoHist = []; this.mesoHistT = 0; this.mesoLastTick = 0; this.mesoWasIdle = false; this.mesoOpen = false; this.mesoStats = null;
     // lvl/exp：最近一次「可信」的讀數；total：從開始追蹤累積的經驗增量（不依賴等級經驗表，升等時才不會算錯）
-    this.lvl = -1; this.exp = 0; this.total = 0; this.rejects = 0; this.maxStep = 0;
+    this.lvl = -1; this.exp = 0; this.total = 0; this.rejects = 0; this.maxStep = 0; this.lv0 = -1; this.startWall = 0; this.mapSec = {};
+    if (this.curMap === undefined) { this.curMap = ''; this.mapCand = ''; this.mapN = 0; }   // 地圖不隨「重置」清掉（人還在同一張圖）
     this.lastGain = 0; this.activeSec = 0; this.lastTick = 0; this.stats = null; this.sessionStart = -1; this.hist = []; this.lastHistUpdate = 0; this.lastData = null;
     this.lines = { player: '統計已重置', rate: '十分鐘經驗：計算中...', eta: '距離升等還要：計算中...', active: '持續練等：00:00', meso: '十分鐘楓幣：請開啟道具欄' };
     if (typeof renderStats === 'function') renderStats();
@@ -733,7 +888,7 @@ class Tracker {
     if (this.rebase && this.lvl !== -1) { this.lvl = level; this.exp = experience; this.rejects = 0; this.rebase = false; }   // 剛從暫停繼續：以這筆當新基準
 
     if (this.lvl === -1) {                                   // 第一筆讀數：當作基準
-      this.lvl = level; this.exp = experience; this.total = 0;
+      this.lvl = level; this.exp = experience; this.total = 0; this.lv0 = level; this.startWall = Date.now();
       this.lastGain = now; this.sessionStart = now; this.hist = [[now, 0]]; this.lastHistUpdate = now;
     } else {
       // 這次讀數相對上一筆可信讀數增加了多少經驗？
@@ -787,7 +942,7 @@ class Tracker {
       } else { rateText = '計算中...'; eta = '距離升等還要：計算中...'; }
     }
     const dt = this.lastTick ? Math.min(now - this.lastTick, 5) : 0; this.lastTick = now;
-    if (!isIdle) this.activeSec += dt;
+    if (!isIdle) { this.activeSec += dt; if (this.curMap) this.mapSec[this.curMap] = (this.mapSec[this.curMap] || 0) + dt; }
     {
       const act = this.activeSec, rq = EXP_REQ[this.lvl] || req;
       let avg10 = null, avgHr = null, etaSec = null;
@@ -957,11 +1112,13 @@ async function tick() {
     if (!extractor.available) { tracker.setStatus('找不到遊戲介面，偵測中...'); updateDbg(src); return; }
     const src2 = frameSource() || src;
     const lvImg = extractor.crop(src2, 'lv'), expImg = extractor.crop(src2, 'exp');
+    const mapImg = extractor.cropMap(src2);                   // 地圖名稱（每秒才掃一次，其餘 tick 回傳 null）
     const mesoImg = extractor.cropMeso(src2);                 // 道具欄沒開 → null（同樣在 await 之前同步擷取）
     const lv = await extractor.readLevel(lvImg), ex = await extractor.readExp(expImg);
     let mv = null, mskip = false;
     if (mesoImg) { const m = await extractor.readMeso(mesoImg); if (m.v >= 0 && m.conf >= 0.9) mv = m.v; else mskip = true; }
     else if (extractor.mesoSkip) mskip = true;
+    if (mapImg) { const mp = await extractor.readMap(mapImg); if (mp.name) tracker.noteMap(mp.name); }
     updateDbg(src2);
     if (lv.conf < 0.8 || ex.conf < 0.8) tracker.setStatus('讀取中...');
     else {
@@ -1202,13 +1359,48 @@ function renderStats() {
   if (st.etaSec === null) { set('stEta', '計算中...'); set('stEtaS', ''); }
   else if (st.etaSec < 60) { set('stEta', '不到1分鐘'); set('stEtaS', finishTimeText(st.etaSec).replace(/[()]/g, '')); }
   else { set('stEta', fmtDur(st.etaSec).replace(/\d+秒$/, '')); set('stEtaS', st.etaSec < 86400 ? finishTimeText(st.etaSec).replace(/[()]/g, '') : ''); }
+  set('stMap', tracker.curMap || '—'); set('stMapS', tracker.curMap ? '' : (extractor && extractor.mapSkip) || '辨識中...');
   set('stTotal', fmtInt(st.total)); set('stTotalS', pc(st.pctTotal));
   set('stTime', fmtDur(st.act)); set('stTimeS', tracker.paused ? '已暫停' : st.idle ? '目前閒置中（暫停計時）' : '');
+}
+
+const histSel = new Set();   // 目前勾選的紀錄（用開始時間當 id）；勾選會跨頁保留
+const HIST_PAGE = 10; let histPage = 1;   // 每頁 10 筆（最新的在第 1 頁）
+const histPageRows = () => ExpHistory.list.slice().reverse().slice((histPage - 1) * HIST_PAGE, histPage * HIST_PAGE);
+const escHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function mapCell(e) {
+  const m = Array.isArray(e.maps) && e.maps.length ? e.maps : (e.map ? [[e.map, e.act]] : []);
+  if (!m.length) return '<td class="mut">—</td>';
+  const more = m.slice(1).filter(x => x[1] >= 60 && x[1] >= e.act * 0.1).length;
+  const tip = m.map(x => `${x[0]} ${fmtDur(x[1])}`).join('\n');
+  return `<td title="${escHtml(tip)}">${escHtml(m[0][0])}${more ? ` <span class="mut">+${more}</span>` : ''}</td>`;
+}
+function renderHistory() {
+  const body = document.getElementById('histBody'); if (!body) return;
+  const L = ExpHistory.list, cnt = document.getElementById('histCount'), sum = document.getElementById('histSum');
+  if (cnt) cnt.textContent = L.length;
+  const ids = new Set(L.map(e => e.start)); for (const k of [...histSel]) if (!ids.has(k)) histSel.delete(k);   // 已不存在的不留在選取裡
+  const pages = Math.max(1, Math.ceil(L.length / HIST_PAGE)); histPage = clamp(histPage, 1, pages);   // 刪到最後一頁沒資料時自動退回前一頁
+  const pr = histPageRows(), nSel = pr.filter(e => histSel.has(e.start)).length;
+  const bd = document.getElementById('btnHistDelSel'), all = document.getElementById('histAll'), pg = document.getElementById('histPager');
+  if (bd) { bd.textContent = `刪除選取 (${histSel.size})`; bd.disabled = histSel.size === 0; }
+  if (all) { all.checked = pr.length > 0 && nSel === pr.length; all.indeterminate = nSel > 0 && nSel < pr.length; all.disabled = pr.length === 0; }   // 表頭勾選框 = 這一頁
+  if (pg) { pg.style.display = pages > 1 ? 'flex' : 'none'; document.getElementById('histPageTxt').textContent = `第 ${histPage} / ${pages} 頁（共 ${L.length} 筆）`; document.getElementById('histPrev').disabled = histPage <= 1; document.getElementById('histNext').disabled = histPage >= pages; }
+  if (!L.length) { body.innerHTML = '<tr><td colspan="10" class="mut" style="text-align:left">尚無紀錄</td></tr>'; if (sum) sum.textContent = ''; return; }
+  const dt = ms => { const d = new Date(ms); return `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  body.innerHTML = pr.map(e => {
+    const lv = e.lv0 === e.lv1 ? `${e.lv1}` : `${e.lv0}→${e.lv1}`;
+    const pct = e.pctHr === null || e.pctHr === undefined ? '' : ` <span class="mut">(${e.pctHr.toFixed(2)}%)</span>`;
+    return `<tr><td><input type="checkbox" class="hsel" data-start="${e.start}"${histSel.has(e.start) ? ' checked' : ''}></td><td>${dt(e.start)}</td>${mapCell(e)}<td>${fmtDur(e.act)}</td><td>${lv}</td><td>${fmtInt(e.total)}</td><td>${e.avg10 === null || e.avg10 === undefined ? '—' : fmtInt(e.avg10)}</td><td>${fmtInt(e.avgHr)}${pct}</td><td>${e.mesoHr === null || e.mesoHr === undefined ? '—' : fmtInt(e.mesoHr)}</td><td><button class="hx" data-start="${e.start}" title="刪除這筆">✕</button></td></tr>`;
+  }).join('');
+  const wk = Date.now() - 7 * 86400e3, r = L.filter(e => e.end >= wk), act = r.reduce((a, e) => a + e.act, 0), tot = r.reduce((a, e) => a + e.total, 0);
+  if (sum) sum.textContent = act > 0 ? `近 7 天：${r.length} 段、共 ${fmtDur(act)}、平均每小時 ${fmtInt(tot / act * 3600)} 經驗` : '';
 }
 
 async function boot() {
   { let ci = 0; setInterval(() => { ci = (ci + 1) % CUR_CLICK_FRAMES.length; document.documentElement.style.setProperty('--cur-c', CUR_CLICK_FRAMES[ci]); }, 300); }   // 主頁面的點擊游標動畫
   Settings.load();
+  ExpHistory.load(); ExpHistory.recover();
   tracker = new Tracker(() => overlay && overlay.render());
   tracker.onReset = () => { if (extractor) extractor.invalidate(); };
   overlay = new Overlay({
@@ -1235,7 +1427,16 @@ async function boot() {
     auto: () => { if (Settings.d.manual_lv_box || Settings.d.manual_exp_box) { Settings.d.manual_lv_box = Settings.d.manual_exp_box = null; Settings.save(); applyManualFromSettings(); overlay.render(); } },
   });
   tracker.lines.player = '請先分享遊戲畫面'; 
-  overlay.render(); updatePipUi(); updateCalState(); renderStats();
+  overlay.render(); updatePipUi(); updateCalState(); renderStats(); renderHistory();
+  setInterval(() => { if (tracker && !tracker.paused) ExpHistory.saveLive(tracker.snapshot()); }, 30000);   // 備份進行中的這段
+  addEventListener('pagehide', () => { if (tracker) ExpHistory.saveLive(tracker.snapshot()); });
+  document.getElementById('histBody').addEventListener('click', e => { const b = e.target.closest('.hx'); if (b) ExpHistory.remove(Number(b.dataset.start)); });
+  document.getElementById('histBody').addEventListener('change', e => { const c = e.target.closest('.hsel'); if (!c) return; const k = Number(c.dataset.start); if (c.checked) histSel.add(k); else histSel.delete(k); renderHistory(); });
+  document.getElementById('histAll').addEventListener('change', e => { if (e.target.checked) histPageRows().forEach(x => histSel.add(x.start)); else histPageRows().forEach(x => histSel.delete(x.start)); renderHistory(); });
+  document.getElementById('histPrev').addEventListener('click', () => { histPage--; renderHistory(); });
+  document.getElementById('histNext').addEventListener('click', () => { histPage++; renderHistory(); });
+  document.getElementById('btnHistDelSel').addEventListener('click', () => { const n = histSel.size; if (n && confirm(`確定要刪除選取的 ${n} 筆紀錄嗎？`)) { ExpHistory.removeMany(new Set(histSel)); histSel.clear(); renderHistory(); } });
+  document.getElementById('btnHistClear').addEventListener('click', () => { if (ExpHistory.list.length && confirm('確定要清除所有練功紀錄嗎？')) ExpHistory.clear(); });
 
   // 時鐘用 Worker 計時：分頁在背景（遊戲在前景）時瀏覽器不會把它降速
   try { const cw = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),1000)'], { type: 'text/javascript' }))); cw.onmessage = () => overlay.updateClock(); }
