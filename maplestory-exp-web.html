@@ -248,6 +248,8 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <span>LV 擷取</span><span><canvas id="dbgLv" width="1" height="1"></canvas> <span id="dbgLvT" class="mut"></span></span>
       <span>EXP 擷取</span><span><canvas id="dbgExp" width="1" height="1"></canvas> <span id="dbgExpT" class="mut"></span></span>
       <span>楓幣擷取</span><span><canvas id="dbgMeso" width="1" height="1"></canvas> <span id="dbgMesoT" class="mut"></span></span>
+      <span>地圖名稱擷取</span><span><canvas id="dbgMap" width="1" height="1"></canvas> <span id="dbgMapT" class="mut"></span></span>
+      <span>小地圖掃描區</span><span><canvas id="dbgMapScan" width="1" height="1" style="height:auto;max-height:140px;width:auto"></canvas><br><span id="dbgMapScanT" class="mut"></span></span>
       <span>偵測</span><span id="dbgDet" class="mut">—</span>
     </div>
   </section>
@@ -464,13 +466,23 @@ function scanMesoBoxes(d, rw, rh) {                // d: RGBA；回傳 { best: {
 
 // MAP-SCAN-BEGIN
 const clampN = (v, a, b) => Math.min(b, Math.max(a, v));
-function scanMapName(d, rw, rh, sc) {
+// lvl 0 = 原本的嚴格條件；1~3 逐步放寬（顏色範圍、藍色列門檻），用來應付不同地圖／不同外框樣式／影像壓縮造成的色差
+const MAP_LVLS = [
+  { rel: false, t: 18, tmin: 10 }, { rel: false, t: 10, tmin: 6 },
+  { rel: true, t: 10, tmin: 6 }, { rel: true, t: 6, tmin: 4 },
+];
+let mapWhy = '';
+function mapFail(w) { mapWhy = w; return null; }
+function scanMapName(d, rw, rh, sc, lvl = 0) {
+  const L = MAP_LVLS[lvl] || MAP_LVLS[0];
   const n = rw * rh, B = new Uint8Array(n);
   for (let i = 0, p = 0; i < n; i++, p += 4) {
     const r = d[p], g = d[p + 1], b = d[p + 2];
-    B[i] = (r >= 135 && r <= 172 && g >= 160 && g <= 202 && b >= 185 && b <= 216 && b > r + 25 && g > r + 8) ? 1 : 0;
+    B[i] = L.rel
+      ? ((r >= 115 && r <= 190 && g >= 145 && g <= 220 && b >= 170 && b <= 235 && b > r + 15 && g > r + 4) ? 1 : 0)
+      : ((r >= 135 && r <= 172 && g >= 160 && g <= 202 && b >= 185 && b <= 216 && b > r + 25 && g > r + 8) ? 1 : 0);
   }
-  const T = Math.max(10, 18 * sc), cnt = new Int32Array(rh);
+  const T = Math.max(L.tmin, L.t * sc), cnt = new Int32Array(rh);
   for (let y = 0; y < rh; y++) { let c = 0; const o = y * rw; for (let x = 0; x < rw; x++) c += B[o + x]; cnt[y] = c; }
   // 由上往下找「藍色夠多的列」，容許文字／圖示造成的空隙（合併 16*sc 內的斷點），
   // 取第一段高度合理的 = 小地圖本體（含標題列；不同外框樣式高度不同，所以範圍放寬）
@@ -480,20 +492,21 @@ function scanMapName(d, rw, rh, sc) {
     if (y < rh && cnt[y] >= T) { if (s0 < 0) s0 = y; last = y; }
     else if (s0 >= 0 && (y >= rh || y - last > gap)) { const h = last - s0 + 1; if (h >= 24 * sc && h <= 190 * sc) { y0 = s0; y1 = last; } s0 = -1; }
   }
-  if (y0 < 0) return null;
+  if (y0 < 0) return mapFail('找不到藍色標題帶（藍色像素列不足）');
   const H = y1 - y0 + 1;
   // 左右邊界：由欄位的藍色比例判斷，從左邊第一個有藍的欄位連續往右（容許小空隙），遇到外框就停
   const col = new Int32Array(rw);
   for (let y = y0; y <= y1; y++) { const o = y * rw; for (let x = 0; x < rw; x++) col[x] += B[o + x]; }
   const CT = Math.max(2, H * 0.12);
   let xl = -1; for (let x = 0; x < rw; x++) if (col[x] >= CT) { xl = x; break; }
-  if (xl < 0) return null;
+  if (xl < 0) return mapFail('標題帶內找不到藍色欄位');
   let xr = xl, miss = 0;
   for (let x = xl; x < rw; x++) { if (col[x] >= CT) { xr = x; miss = 0; } else if (++miss > Math.max(3, 2 * sc)) break; }
-  if (xr - xl < 60 * sc) return null;
+  if (xr - xl < 60 * sc) return mapFail('標題帶寬度太窄');
   // 文字（白字）：圖示右側。圖示寬度隨縮放變，用 46*sc 估，再往左多容許一些
   const tx0 = Math.round(xl + Math.min(40 * sc, 64)), tx1 = xr - 1;
-  const white = (x, y) => { const p = (y * rw + x) * 4; return d[p] >= 215 && d[p + 1] >= 215 && d[p + 2] >= 215; };
+  const WT = 200;   // 小地圖文字被 UI 放大後邊緣發灰，215 會只剩零星像素；底色最亮約 153~160，200 仍有足夠餘裕
+  const white = (x, y) => { const p = (y * rw + x) * 4; return d[p] >= WT && d[p + 1] >= WT && d[p + 2] >= WT; };
   const rowHas = [];
   for (let y = y0; y <= y1; y++) { let c = 0; for (let x = tx0; x <= tx1; x++) if (white(x, y)) c++; rowHas.push(c >= 1); }
   const groups = []; let s = -1;
@@ -501,19 +514,55 @@ function scanMapName(d, rw, rh, sc) {
     if (i < rowHas.length && rowHas[i]) { if (s < 0) s = i; }
     else if (s >= 0) { if (i - s >= Math.max(5, 7 * sc)) groups.push([s + y0, i - 1 + y0]); s = -1; }
   }
-  if (!groups.length) return null;
+  if (!groups.length) return mapFail('標題帶內沒有白色文字');
   const [ga, gb] = groups[groups.length - 1];   // 最後一行 = 地圖名稱（上面是地區名稱）
   // 這一行裡有白色的欄位；從最右邊往左連續延伸（容許字距內的空隙），空隙太大就視為圖示殘影而捨棄
   const wc = new Uint8Array(rw);
   for (let y = ga; y <= gb; y++) for (let x = tx0; x <= tx1; x++) if (white(x, y)) wc[x] = 1;
   let bx = -1; for (let x = tx1; x >= tx0; x--) if (wc[x]) { bx = x; break; }
-  if (bx < 0) return null;
-  let ax = bx, miss2 = 0; const mg = Math.max(9, 5 * sc);
+  if (bx < 0) return mapFail('名稱列沒有白字');
+  let ax = bx, miss2 = 0; const mg = Math.max(12, 6 * sc);
   for (let x = bx; x >= tx0; x--) { if (wc[x]) { ax = x; miss2 = 0; } else if (++miss2 > mg) break; }
-  if (bx - ax < 8 * sc) return null;
-  return { x: ax, y: ga, w: bx - ax + 1, h: gb - ga + 1, band: [xl, y0, xr, y1], lines: groups.length, sc };
+  if (bx - ax < 8 * sc) return mapFail('名稱寬度太短');
+  // 用較嚴的白（≥215）在名稱的 x 範圍內收緊上下界，避免把上一行的暈光算進去
+  let ty0 = -1, ty1 = -1;
+  for (let y = ga; y <= gb; y++) { let hit = false; for (let x = ax; x <= bx && !hit; x++) { const p = (y * rw + x) * 4; if (d[p] >= 215 && d[p + 1] >= 215 && d[p + 2] >= 215) hit = true; } if (hit) { if (ty0 < 0) ty0 = y; ty1 = y; } }
+  const ny = (ty0 >= 0 && ty1 - ty0 + 1 >= 6 * sc) ? ty0 : ga, nh = (ty0 >= 0 && ty1 - ty0 + 1 >= 6 * sc) ? ty1 - ty0 + 1 : gb - ga + 1;
+  // 位置合理性檢查：名稱一定在小地圖左上角、圖示右側第二行（與固定位置備援同一組座標），偏太多就當作掃描失敗，避免把雜訊（天空、牆面）當成名稱
+  if (Math.abs(ax - 50 * sc) > 14 * sc || Math.abs(ny - 45.8 * sc) > 12 * sc || nh > 20 * sc) return mapFail('名稱位置不合理');
+  return { x: ax, y: ny, w: bx - ax + 1, h: nh, band: [xl, y0, xr, y1], lines: groups.length, sc };
 }
 // MAP-SCAN-END
+
+// ---- 地圖名稱比對：OCR 認錯字時，吸附到「已知地圖名稱」中最接近的一個 ----
+// MAP_SEED 是預設名單；信心 ≥0.95 的辨識結果會自動記進 localStorage（不含種子），之後就能用來修正低信心的結果。
+// 想手動加地圖：在瀏覽器 Console 輸入 MapKnown.add('地圖名稱')
+const MAP_SEED = ['遺跡之墓Ⅱ', '遺跡之墓Ⅲ'];
+const MAP_CONFUSE = ['遺透道逍追', '跡助蹄踪蹤', '墓基暮幕慕募'];   // 字形相近、OCR 常互相認錯的字（替換成本 0.3，其餘 1）
+const MapKnown = {
+  KEY: 'mapKnownNames', list: [],
+  load() { let a = []; try { a = JSON.parse(localStorage.getItem(this.KEY) || '[]'); } catch (e) {} this.list = [...new Set([...MAP_SEED, ...(Array.isArray(a) ? a : [])])]; },
+  add(n) { n = String(n || '').replace(/[\s\u3000]/g, ''); if (n.length < 2 || this.list.includes(n)) return; this.list.push(n); try { localStorage.setItem(this.KEY, JSON.stringify(this.list.filter(x => !MAP_SEED.includes(x)))); } catch (e) {} },
+};
+MapKnown.load();
+function normMap(s) {   // 羅馬數字／I、l、| 統一成阿拉伯數字，避免 Ⅱ、II、ll 被當成不同字
+  return String(s).replace(/[\s\u3000]/g, '').replace(/Ⅰ/g, '1').replace(/Ⅱ/g, '2').replace(/Ⅲ/g, '3').replace(/Ⅳ/g, '4').replace(/Ⅴ/g, '5')
+    .replace(/[Il|丨ǀ]+/g, m => String(Math.min(m.length, 9)));
+}
+function mapCharCost(a, b) { if (a === b) return 0; for (const g of MAP_CONFUSE) if (g.includes(a) && g.includes(b)) return 0.3; return 1; }
+function mapDist(a, b) {
+  const x = Array.from(a), y = Array.from(b); let prev = Array.from({ length: y.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= x.length; i++) { const cur = [i]; for (let j = 1; j <= y.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + mapCharCost(x[i - 1], y[j - 1])); prev = cur; }
+  return prev[y.length];
+}
+function snapMap(name) {   // 回傳 { name, dist } 或 null；要求「夠接近」且「明顯比第二名好」
+  const q = normMap(name); if (!q || !MapKnown.list.length) return null;
+  let best = null, b1 = Infinity, b2 = Infinity;
+  for (const k of MapKnown.list) { const d = mapDist(q, normMap(k)); if (d < b1) { b2 = b1; b1 = d; best = k; } else if (d < b2) b2 = d; }
+  const len = Array.from(normMap(best)).length;
+  return (b1 <= 0.6 * len && b2 - b1 >= 0.5) ? { name: best, dist: b1 } : null;
+}
+function invertImg(img) { const o = new ImageData(new Uint8ClampedArray(img.data), img.width, img.height), d = o.data; for (let i = 0; i < d.length; i += 4) { d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2]; } return o; }
 
 function sameBytes(a, b) { if (!a || !b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; }
 
@@ -530,9 +579,9 @@ class Extractor {
   constructor() {
     this.scale = 0; this.size = ''; this.manual = false; this.nextTry = 0; this.fullTried = false; this.detecting = false;
     this.lvBox = [0, 0, 1, 1]; this.expBox = [0, 0, 1, 1];
-    this.lvCache = null; this.expCache = null; this.mesoCache = null; this.mapCache = null; this.mapNext = 0; this.mapSkip = '';
+    this.lvCache = null; this.expCache = null; this.mesoCache = null; this.mapCache = null; this.mapNext = 0; this.mapSkip = ''; this.mapLast = null; this.mapHow = ''; this.mapWhy = '';
     this.mbox = null; this.mNext = 0; this.mSize = ''; this.dbgMesoN = 0; this.mesoSkip = ''; this.mesoTint = 0;   // 楓幣欄位置 {x,y,w,h}、下次整張掃描時間、畫面大小、候選框數（除錯用）
-    this.dbg = { lvText: '', lvConf: 0, expText: '', expConf: 0, lvImg: null, expImg: null, mesoText: '', mesoConf: 0, mesoImg: null };
+    this.dbg = { lvText: '', lvConf: 0, expText: '', expConf: 0, lvImg: null, expImg: null, mesoText: '', mesoConf: 0, mesoImg: null, mapText: '', mapConf: 0, mapImg: null, mapSnap: '', mapScanOk: false };
   }
   get available() { return this.scale > 0; }
   setManualBoxes(lv, ex) { this.manual = true; this.lvBox = lv.map(Math.round); this.expBox = ex.map(Math.round); this.scale = 1.0; this.invalidate(); }
@@ -665,24 +714,87 @@ class Extractor {
     const sc = this.scale > 0 ? this.scale : 1;
     const rw = Math.min(src.w, Math.round(520 * sc)), rh = Math.min(src.h, Math.round(200 * sc));
     if (rw < 60 || rh < 40) return null;
-    const b = scanMapName(this.grab(src, 0, 0, rw, rh).data, rw, rh, sc);
-    if (!b) { this.mapSkip = '找不到小地圖（可能被收起或關閉）'; return null; }
-    this.mapSkip = '';
+    const scanImg = this.grab(src, 0, 0, rw, rh);
+    let b = null, lvl = 0, why0 = '';
+    for (; lvl < MAP_LVLS.length && !b; lvl++) { b = scanMapName(scanImg.data, rw, rh, sc, lvl); if (!b && !lvl) why0 = mapWhy; }
+    lvl--;
+    this.mapWhy = b ? '' : why0;
+    let how = '';
+    if (b) { this.mapLast = { x: b.x, y: b.y, h: b.h, band: b.band.slice(), sc: b.sc }; how = lvl ? `（放寬條件 ${lvl}）` : ''; }
+    else if (this.mapLast && this.mapLast.sc === sc) {
+      // 掃不到（換地圖載入中、小地圖外框樣式不同…）：沿用上次成功的位置（名稱固定在圖示右邊），區域右邊界取上次的視窗右緣
+      const m = this.mapLast; b = { x: m.x, y: m.y, w: Math.max(8, m.band[2] - m.x - 2), h: m.h, band: m.band, sc }; how = '（掃描失敗，沿用上次位置）';
+    }
+    if (!b) {   // 最後備援：不看顏色，直接依 UI 縮放用固定位置推算名稱列（小地圖永遠在視窗左上角、名稱在圖示右邊第二行）
+      const gx = Math.round(50 * sc), gy = Math.round(45.8 * sc), gh = Math.round(10.2 * sc), gw = Math.round(80 * sc);
+      if (gx + gw < rw && gy + gh < rh) { b = { x: gx, y: gy, w: gw, h: gh, band: [0, 0, Math.min(rw, Math.round(125 * sc)), Math.min(rh, Math.round(62 * sc))], sc }; how = '（掃描失敗，用固定位置推算）'; }
+    }
+    this.drawMapScan(scanImg, rw, rh, b);
+    if (!b) { this.mapSkip = '找不到小地圖（可能被收起或關閉）'; this.mapHow = ''; return null; }
+    this.mapSkip = ''; this.mapHow = how;
     const pad = Math.max(2, Math.round(3 * b.sc)), x1 = Math.max(b.band[0], b.x - pad), x2 = Math.min(b.band[2] + 1, b.x + b.w + pad), y1 = Math.max(b.band[1], b.y - pad), y2 = Math.min(b.band[3] + 1, b.y + b.h + pad);
     const w = x2 - x1, h = y2 - y1; if (w < 8 || h < 6) return null;
     const c = cropCv.map, cx = cropCtx.map; if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
     cx.drawImage(src.img, x1, y1, w, h, 0, 0, w, h);
     return cx.getImageData(0, 0, w, h);
   }
+  // 除錯用：把左上角掃描區畫出來，並框出「小地圖範圍（綠）」與「地圖名稱（紅）」，掃不到時只有原圖
+  drawMapScan(img, rw, rh, b) {
+    const c = cropCv.mapScan || (cropCv.mapScan = document.createElement('canvas'));
+    if (c.width !== rw || c.height !== rh) { c.width = rw; c.height = rh; }
+    const cx = c.getContext('2d'); cx.putImageData(img, 0, 0);
+    if (b) {
+      cx.lineWidth = Math.max(2, Math.round(rw / 300));
+      cx.strokeStyle = '#19d219'; cx.strokeRect(b.band[0] + .5, b.band[1] + .5, b.band[2] - b.band[0], b.band[3] - b.band[1]);
+      cx.strokeStyle = '#ff2a2a'; cx.strokeRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2);
+    }
+    this.dbg.mapScanOk = !!b;
+  }
+  // 地圖名稱前處理：放大（平滑插值）→ 取 min(R,G,B) 當「白度」→ 軟二值化（白字留亮、藍色底與描邊壓暗），讓小字邊緣更乾淨
+  preprocessMap(img) {
+    const k = Math.max(2, Math.ceil(96 / img.height));
+    const W = img.width * k, H = img.height * k;
+    const src = cropCv.mapSrc || (cropCv.mapSrc = document.createElement('canvas'));
+    const dst = cropCv.mapUp || (cropCv.mapUp = document.createElement('canvas'));
+    if (src.width !== img.width || src.height !== img.height) { src.width = img.width; src.height = img.height; }
+    if (dst.width !== W || dst.height !== H) { dst.width = W; dst.height = H; }
+    src.getContext('2d').putImageData(img, 0, 0);
+    const cx = dst.getContext('2d', { willReadFrequently: true });
+    cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+    cx.drawImage(src, 0, 0, W, H);
+    const out = cx.getImageData(0, 0, W, H), d = out.data, LO = 140, HI = 210;
+    for (let i = 0; i < d.length; i += 4) {
+      const m = Math.min(d[i], d[i + 1], d[i + 2]);
+      let t = (m - LO) / (HI - LO); t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const v = Math.round(255 * t * t * (3 - 2 * t));   // smoothstep，保留一點邊緣漸層
+      d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+    }
+    return out;
+  }
   async readMap(img) {
     if (!img) return { name: '', conf: 0 };
-    this.dbg.mapImg = img;
-    if (this.mapCache && sameBytes(this.mapCache.arr, img.data)) return this.mapCache.res;
-    let r; try { r = await this.rec.recognize(img); } catch (e) { console.warn('MAP recognition failed', e); return { name: '', conf: 0 }; }
+    if (this.mapCache && sameBytes(this.mapCache.arr, img.data)) { this.dbg.mapImg = this.mapCache.proc || img; return this.mapCache.res; }
+    let proc = img; try { proc = this.preprocessMap(img); } catch (e) { console.warn('MAP preprocess failed', e); }
+    this.dbg.mapImg = proc;
+    // 先用「白字黑底」辨識；信心不到 0.9 再用反相（黑字白底）多試一次，取信心較高者
+    let r, pick = proc;
+    try { r = await this.rec.recognize(proc); } catch (e) { console.warn('MAP recognition failed', e); return { name: '', conf: 0 }; }
+    if (r.conf < 0.9) { try { const inv = invertImg(proc), r2 = await this.rec.recognize(inv); if (r2.conf > r.conf) { r = r2; pick = inv; } } catch (e) { console.warn('MAP recognition (inverted) failed', e); } }
+    this.dbg.mapImg = pick;
     const name = r.text.replace(/[\s\u3000]/g, '');
-    this.dbg.mapText = name; this.dbg.mapConf = r.conf;
-    const res = (name.length >= 2 && name.length <= 20 && r.conf >= 0.8) ? { name, conf: r.conf } : { name: '', conf: r.conf };
-    this.mapCache = { arr: new Uint8ClampedArray(img.data), res };
+    this.dbg.mapText = name; this.dbg.mapConf = r.conf; this.dbg.mapSnap = '';
+    let res = { name: '', conf: r.conf };
+    const lenOk = name.length >= 2 && name.length <= 20;
+    if (lenOk && r.conf >= 0.8) {
+      const sn = snapMap(name);
+      res = { name: (sn && sn.dist <= 1) ? sn.name : name, conf: r.conf };   // 高信心：只在差一點點時才統一成名單寫法（例如 II ↔ Ⅱ）
+      if (r.conf >= 0.95) MapKnown.add(res.name);
+    } else if (name.length >= 1 && r.conf >= 0.35) {
+      const sn = snapMap(name);                                              // 低信心：只有對得上名單才採用，對不上就略過
+      if (sn) { res = { name: sn.name, conf: r.conf }; this.dbg.mapSnap = sn.name; }
+    }
+    this.dbg.mapRej = !res.name;
+    this.mapCache = { arr: new Uint8ClampedArray(img.data), res, proc: pick };
     return res;
   }
 
@@ -1145,7 +1257,10 @@ function updateDbg(src) {
   const now = performance.now(); if (now - lastDbg < 500) return; lastDbg = now;
   const d = extractor.dbg;
   const put = (id, img) => { const c = $(id); if (!img) return; if (c.width !== img.width || c.height !== img.height) { c.width = img.width; c.height = img.height; } c.getContext('2d').putImageData(img, 0, 0); };
-  put('#dbgLv', d.lvImg); put('#dbgExp', d.expImg); put('#dbgMeso', d.mesoImg);
+  put('#dbgLv', d.lvImg); put('#dbgExp', d.expImg); put('#dbgMeso', d.mesoImg); put('#dbgMap', d.mapImg);
+  { const sc2 = cropCv.mapScan, c = $('#dbgMapScan'); if (sc2 && sc2.width > 1) { if (c.width !== sc2.width || c.height !== sc2.height) { c.width = sc2.width; c.height = sc2.height; } c.getContext('2d').drawImage(sc2, 0, 0); } }
+  $('#dbgMapT').textContent = d.mapText ? `“${d.mapText}”  信心 ${d.mapConf.toFixed(2)}${d.mapRej ? '（信心低於 0.80 或長度不符，略過）' : d.mapSnap ? `→ 比對為「${d.mapSnap}」` : ''}` + (tracker.curMap ? `｜目前採用：${tracker.curMap}` : '') : (extractor.mapSkip || '辨識中…');
+  $('#dbgMapScanT').textContent = (d.mapScanOk ? '綠框＝小地圖範圍，紅框＝地圖名稱' : '掃描區內沒找到小地圖標題（綠框／紅框都沒有）') + (extractor.mapHow ? ' ' + extractor.mapHow : '') + (extractor.mapWhy ? `｜嚴格掃描失敗原因：${extractor.mapWhy}` : '');
   $('#dbgMesoT').textContent = extractor.mbox ? (extractor.mesoSkip ? extractor.mesoSkip + `（異色像素 ${extractor.mesoTint}）` : d.mesoText ? `“${d.mesoText}”  最低信心 ${d.mesoConf.toFixed(2)}${d.mesoConf < 0.9 ? '（低於 0.90，略過）' : ''}` : '道具欄已偵測') + `｜楓幣欄 (${extractor.mbox.x}, ${extractor.mbox.y}) ${extractor.mbox.w}×${extractor.mbox.h}`
     : '未偵測到道具欄（沒開，或楓幣欄被其他視窗擋住）' + (extractor.dbgMesoN ? `｜掃到 ${extractor.dbgMesoN} 個白框，但不符合「楓幣＋點數成對」` : '');
   $('#dbgLvT').textContent = d.lvText ? `“${d.lvText}”  信心 ${d.lvConf.toFixed(2)}` : '';
