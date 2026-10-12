@@ -464,45 +464,53 @@ function scanMesoBoxes(d, rw, rh) {                // d: RGBA；回傳 { best: {
 
 // MAP-SCAN-BEGIN
 const clampN = (v, a, b) => Math.min(b, Math.max(a, v));
-// 小地圖標題區（左上角）：淺藍底(約154,187,206)＋白字。回傳「地圖名稱那一行」的文字框，找不到回傳 null
 function scanMapName(d, rw, rh, sc) {
   const n = rw * rh, B = new Uint8Array(n);
   for (let i = 0, p = 0; i < n; i++, p += 4) {
     const r = d[p], g = d[p + 1], b = d[p + 2];
-    B[i] = (Math.abs(r - 154) <= 24 && Math.abs(g - 187) <= 24 && Math.abs(b - 206) <= 24 && b > r + 25) ? 1 : 0;
+    B[i] = (r >= 135 && r <= 172 && g >= 160 && g <= 202 && b >= 185 && b <= 216 && b > r + 25 && g > r + 8) ? 1 : 0;
   }
-  // 每列的淺藍像素數；標題區 = 由上往下第一段連續「藍色夠多」的列
-  const T = 40 * sc, cnt = new Int32Array(rh);
+  const T = Math.max(10, 18 * sc), cnt = new Int32Array(rh);
   for (let y = 0; y < rh; y++) { let c = 0; const o = y * rw; for (let x = 0; x < rw; x++) c += B[o + x]; cnt[y] = c; }
-  // 由上往下找「連續藍色夠多的列」，取第一段高度合理（約 44*sc，容許 30~90*sc）的 = 標題區；
-  // 畫面最上緣偶爾有一兩列相近顏色（天空等），高度不合理的段落直接跳過
+  // 由上往下找「藍色夠多的列」，容許文字／圖示造成的空隙（合併 16*sc 內的斷點），
+  // 取第一段高度合理的 = 小地圖本體（含標題列；不同外框樣式高度不同，所以範圍放寬）
+  const gap = Math.round(16 * sc);
   let y0 = -1, y1 = -1;
   for (let y = 0, s0 = -1, last = -1; y <= rh && y0 < 0; y++) {
     if (y < rh && cnt[y] >= T) { if (s0 < 0) s0 = y; last = y; }
-    else if (s0 >= 0 && (y >= rh || y - last > 2)) { const h = last - s0 + 1; if (h >= 26 * sc && h <= 100 * sc) { y0 = s0; y1 = last; } s0 = -1; }
+    else if (s0 >= 0 && (y >= rh || y - last > gap)) { const h = last - s0 + 1; if (h >= 24 * sc && h <= 190 * sc) { y0 = s0; y1 = last; } s0 = -1; }
   }
   if (y0 < 0) return null;
-  sc = clampN((y1 - y0 + 1) / 44, 0.5, 4);                  // 標題區高度約 44px×縮放 → 反推實際縮放（手動校正模式的縮放提示不一定準）
-  // 標題區左右邊界
-  let xl = rw, xr = -1;
-  for (let y = y0; y <= y1; y++) { const o = y * rw; for (let x = 0; x < rw; x++) if (B[o + x]) { if (x < xl) xl = x; break; } for (let x = rw - 1; x >= 0; x--) if (B[o + x]) { if (x > xr) xr = x; break; } }
+  const H = y1 - y0 + 1;
+  // 左右邊界：由欄位的藍色比例判斷，從左邊第一個有藍的欄位連續往右（容許小空隙），遇到外框就停
+  const col = new Int32Array(rw);
+  for (let y = y0; y <= y1; y++) { const o = y * rw; for (let x = 0; x < rw; x++) col[x] += B[o + x]; }
+  const CT = Math.max(2, H * 0.12);
+  let xl = -1; for (let x = 0; x < rw; x++) if (col[x] >= CT) { xl = x; break; }
+  if (xl < 0) return null;
+  let xr = xl, miss = 0;
+  for (let x = xl; x < rw; x++) { if (col[x] >= CT) { xr = x; miss = 0; } else if (++miss > Math.max(3, 2 * sc)) break; }
   if (xr - xl < 60 * sc) return null;
-  // 文字（白字）：只看圖示右側，標題區內
-  const tx0 = Math.round(xl + 46 * sc), tx1 = xr - 1;
-  const white = (x, y) => { const p = (y * rw + x) * 4; return d[p] >= 225 && d[p + 1] >= 225 && d[p + 2] >= 225; };
+  // 文字（白字）：圖示右側。圖示寬度隨縮放變，用 46*sc 估，再往左多容許一些
+  const tx0 = Math.round(xl + Math.min(40 * sc, 64)), tx1 = xr - 1;
+  const white = (x, y) => { const p = (y * rw + x) * 4; return d[p] >= 215 && d[p + 1] >= 215 && d[p + 2] >= 215; };
   const rowHas = [];
   for (let y = y0; y <= y1; y++) { let c = 0; for (let x = tx0; x <= tx1; x++) if (white(x, y)) c++; rowHas.push(c >= 1); }
-  // 把有字的列分成幾行，取最後一行（= 地圖名稱；上面那行是地區名稱）
   const groups = []; let s = -1;
   for (let i = 0; i <= rowHas.length; i++) {
     if (i < rowHas.length && rowHas[i]) { if (s < 0) s = i; }
     else if (s >= 0) { if (i - s >= Math.max(5, 7 * sc)) groups.push([s + y0, i - 1 + y0]); s = -1; }
   }
   if (!groups.length) return null;
-  const [ga, gb] = groups[groups.length - 1];
-  let ax = rw, bx = -1;
-  for (let y = ga; y <= gb; y++) for (let x = tx0; x <= tx1; x++) if (white(x, y)) { if (x < ax) ax = x; if (x > bx) bx = x; }
-  if (bx < 0 || bx - ax < 8 * sc) return null;
+  const [ga, gb] = groups[groups.length - 1];   // 最後一行 = 地圖名稱（上面是地區名稱）
+  // 這一行裡有白色的欄位；從最右邊往左連續延伸（容許字距內的空隙），空隙太大就視為圖示殘影而捨棄
+  const wc = new Uint8Array(rw);
+  for (let y = ga; y <= gb; y++) for (let x = tx0; x <= tx1; x++) if (white(x, y)) wc[x] = 1;
+  let bx = -1; for (let x = tx1; x >= tx0; x--) if (wc[x]) { bx = x; break; }
+  if (bx < 0) return null;
+  let ax = bx, miss2 = 0; const mg = Math.max(9, 5 * sc);
+  for (let x = bx; x >= tx0; x--) { if (wc[x]) { ax = x; miss2 = 0; } else if (++miss2 > mg) break; }
+  if (bx - ax < 8 * sc) return null;
   return { x: ax, y: ga, w: bx - ax + 1, h: gb - ga + 1, band: [xl, y0, xr, y1], lines: groups.length, sc };
 }
 // MAP-SCAN-END
