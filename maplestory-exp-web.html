@@ -746,8 +746,9 @@ class Tracker {
         // （而 5% 的上限在高等級可高達數百萬，擋不住）。所以這兩段都限制在「單次合理增量」以內：
         // 寧可少算一隻怪的經驗，也不要多算。單次合理增量 = 目前觀察到的最大單次增量 × 3（至少 200）。
         const stepCap = Math.max(this.maxStep * 3, 200);
-        const remain = Math.max(0, EXP_REQ[this.lvl] - this.exp);
-        g = Math.min(remain, stepCap) + Math.min(experience, stepCap);
+        // 只計入「新等級已有的經驗」（受 stepCap 限制）；舊等級剩下的是經驗表估算值，不算進去，
+        // 避免一次性的大增量被 10 分鐘視窗放大成幾百萬。
+        g = Math.min(experience, stepCap);
       }
       if (g !== null && g >= 0 && g <= maxGain) {
         this.rejects = 0; this.lvl = level; this.exp = experience;
