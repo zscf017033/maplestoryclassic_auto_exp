@@ -537,7 +537,7 @@ function scanMapName(d, rw, rh, sc, lvl = 0) {
 // ---- 地圖名稱比對：OCR 認錯字時，吸附到「已知地圖名稱」中最接近的一個 ----
 // MAP_SEED 是預設名單；信心 ≥0.95 的辨識結果會自動記進 localStorage（不含種子），之後就能用來修正低信心的結果。
 // 想手動加地圖：在瀏覽器 Console 輸入 MapKnown.add('地圖名稱')
-const MAP_SEED = ['遺跡之墓Ⅱ', '遺跡之墓Ⅲ'];
+const MAP_SEED = ['遺跡之墓Ⅱ', '遺跡之墓Ⅲ', '遺跡之墓Ⅳ'];
 const MAP_CONFUSE = ['遺透道逍追', '跡助蹄踪蹤', '墓基暮幕慕募'];   // 字形相近、OCR 常互相認錯的字（替換成本 0.3，其餘 1）
 const MapKnown = {
   KEY: 'mapKnownNames', list: [],
