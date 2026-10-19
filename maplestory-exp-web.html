@@ -229,7 +229,7 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
         <span class="mut" id="histSum"></span>
       </div>
       <div class="hwrap"><table>
-        <thead><tr><th><input type="checkbox" id="histAll" title="全選／取消全選（這一頁）"></th><th>開始時間</th><th>地圖</th><th>練功時間</th><th>等級</th><th>累積經驗</th><th>每十分經驗</th><th>每小時經驗</th><th>每小時楓幣</th><th></th></tr></thead>
+        <thead><tr><th><input type="checkbox" id="histAll" title="全選／取消全選（這一頁）"></th><th>開始時間</th><th>地圖</th><th>練功時間</th><th>等級</th><th>每十分經驗</th><th>每小時經驗</th><th>累積經驗</th><th>累積楓幣</th><th></th></tr></thead>
         <tbody id="histBody"></tbody>
       </table></div>
       <div class="hbar" id="histPager" style="justify-content:center;display:none">
@@ -237,7 +237,7 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
         <span class="mut" id="histPageTxt"></span>
         <button class="b" id="histNext" style="padding:3px 12px;font-size:13px">下一頁 ›</button>
       </div>
-      <p class="mut" style="margin:8px 0 0;font-size:12.5px">按浮窗「重置」或重新連接視窗時，會把該段練功存成一筆（練功不到 30 秒不記錄）；地圖名稱由螢幕左上角的小地圖辨識（連續讀到 3 次才算數，只計入練功中的時間，不同地圖會用滑鼠移到名稱上看明細）；執行中每 30 秒自動備份，意外關閉分頁後下次開啟會自動補存。紀錄只存在這個瀏覽器，最多保留 200 筆。</p>
+      <p class="mut" style="margin:8px 0 0;font-size:12.5px">按浮窗「重置」或重新連接視窗時，會把該段練功存成一筆（練功不到 10 分鐘不記錄）；地圖名稱由螢幕左上角的小地圖辨識（連續讀到 3 次才算數，只計入練功中的時間，不同地圖會用滑鼠移到名稱上看明細）；執行中每 30 秒自動備份，意外關閉分頁後下次開啟會自動補存。紀錄只存在這個瀏覽器，最多保留 200 筆。</p>
     </details>
   </section>
 
@@ -897,7 +897,7 @@ function formatTimeRemaining(sec) {
 const baseExpForLevel = (() => { const a = []; let t = 0; for (let i = 0; i < EXP_REQ.length; i++) { a.push(t); t += EXP_REQ[i]; } return a; })();
 
 // 練功紀錄：每段練功結束（重置／重新連接）時存一筆摘要；執行中定期備份「進行中的這段」，意外關閉也不會遺失
-const HIST_KEY = 'exp_history_v1', HIST_LIVE_KEY = 'exp_history_live_v1', HIST_MAX = 200, HIST_MIN_SEC = 30;
+const HIST_KEY = 'exp_history_v1', HIST_LIVE_KEY = 'exp_history_live_v1', HIST_MAX = 200, HIST_MIN_SEC = 600;
 const ExpHistory = {
   list: [],
   load() { try { const j = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); this.list = Array.isArray(j) ? j.filter(e => e && Number.isFinite(e.start) && Number.isFinite(e.total)) : []; } catch (e) { this.list = []; } },
@@ -942,7 +942,7 @@ class Tracker {
   snapshot() {
     const st = this.stats; if (!st || this.lvl === -1 || !this.startWall || !(this.total > 0) || st.act < HIST_MIN_SEC || st.avgHr === null || st.avg10 === null) return null;
     const ms = this.mesoStats, maps = this.mapSummary();
-    return { map: maps.length ? maps[0][0] : null, maps, start: this.startWall, end: Date.now(), act: st.act, lv0: this.lv0, lv1: this.lvl, total: this.total, avg10: st.avg10, avgHr: st.avgHr, pctHr: st.pctHr, mesoTotal: ms ? ms.total : null, mesoHr: ms && ms.avgHr !== null ? ms.avgHr : null };
+    return { map: maps.length ? maps[0][0] : null, maps, start: this.startWall, end: Date.now(), act: st.act, lv0: this.lv0, lv1: this.lvl, total: this.total, avg10: st.avg10, avgHr: st.avgHr, pct10: st.pct10, pctHr: st.pctHr, pctTotal: st.pctTotal, mesoTotal: ms ? ms.total : null, mesoHr: ms && ms.avgHr !== null ? ms.avgHr : null };
   }
   reset() {
     if (this.total > 0) ExpHistory.add(this.snapshot());   // 先把上一段存起來再清掉
@@ -1718,7 +1718,7 @@ function renderStats() {
 }
 
 const histSel = new Set();   // 目前勾選的紀錄（用開始時間當 id）；勾選會跨頁保留
-const HIST_PAGE = 10; let histPage = 1;   // 每頁 10 筆（最新的在第 1 頁）
+const HIST_PAGE = 5; let histPage = 1;   // 每頁 5 筆（最新的在第 1 頁）
 const histPageRows = () => ExpHistory.list.slice().reverse().slice((histPage - 1) * HIST_PAGE, histPage * HIST_PAGE);
 const escHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function mapCell(e) {
@@ -1727,6 +1727,13 @@ function mapCell(e) {
   const more = m.slice(1).filter(x => x[1] >= 60 && x[1] >= e.act * 0.1).length;
   const tip = m.map(x => `${x[0]} ${fmtDur(x[1])}`).join('\n');
   return `<td title="${escHtml(tip)}">${escHtml(m[0][0])}${more ? ` <span class="mut">+${more}</span>` : ''}</td>`;
+}
+function mesoCell(e) {   // 累積楓幣＋底下小字「每小時平均」；舊紀錄沒有 mesoTotal 時用每小時楓幣反推
+  const has = v => v !== null && v !== undefined && Number.isFinite(v);
+  let tot = has(e.mesoTotal) ? e.mesoTotal : (has(e.mesoHr) && e.act > 0 ? Math.round(e.mesoHr * e.act / 3600) : null);
+  if (tot === null) return '—';
+  const hr = has(e.mesoHr) ? e.mesoHr : (e.act > 0 ? Math.round(tot / e.act * 3600) : null);
+  return `${fmtInt(tot)}${hr === null ? '' : `<br><span class="mut" style="font-size:12px">${fmtInt(hr)}/h</span>`}`;
 }
 function renderHistory() {
   const body = document.getElementById('histBody'); if (!body) return;
@@ -1743,8 +1750,10 @@ function renderHistory() {
   const dt = ms => { const d = new Date(ms); return `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
   body.innerHTML = pr.map(e => {
     const lv = e.lv0 === e.lv1 ? `${e.lv1}` : `${e.lv0}→${e.lv1}`;
-    const pct = e.pctHr === null || e.pctHr === undefined ? '' : ` <span class="mut">(${e.pctHr.toFixed(2)}%)</span>`;
-    return `<tr><td><input type="checkbox" class="hsel" data-start="${e.start}"${histSel.has(e.start) ? ' checked' : ''}></td><td>${dt(e.start)}</td>${mapCell(e)}<td>${fmtDur(e.act)}</td><td>${lv}</td><td>${fmtInt(e.total)}</td><td>${e.avg10 === null || e.avg10 === undefined ? '—' : fmtInt(e.avg10)}</td><td>${fmtInt(e.avgHr)}${pct}</td><td>${e.mesoHr === null || e.mesoHr === undefined ? '—' : fmtInt(e.mesoHr)}</td><td><button class="hx" data-start="${e.start}" title="刪除這筆">✕</button></td></tr>`;
+    const sub = v => v === null || v === undefined || !Number.isFinite(v) ? '' : `<br><span class="mut" style="font-size:12px">${v.toFixed(2)}%</span>`;
+    const pct10 = e.pct10 !== null && e.pct10 !== undefined ? e.pct10 : (e.pctHr && e.avgHr > 0 && e.avg10 > 0 ? e.pctHr * e.avg10 / e.avgHr : null);   // 舊紀錄沒存：用每小時百分比按比例反推
+    const pctTot = e.pctTotal !== null && e.pctTotal !== undefined ? e.pctTotal : (e.pctHr && e.avgHr > 0 ? e.pctHr * e.total / e.avgHr : null);   // 舊紀錄沒存總百分比：用每小時百分比按比例反推
+    return `<tr><td><input type="checkbox" class="hsel" data-start="${e.start}"${histSel.has(e.start) ? ' checked' : ''}></td><td>${dt(e.start)}</td>${mapCell(e)}<td>${fmtDur(e.act)}</td><td>${lv}</td><td>${e.avg10 === null || e.avg10 === undefined ? '—' : fmtInt(e.avg10) + sub(pct10)}</td><td>${e.act < 3600 ? '<span class="mut">—</span>' : fmtInt(e.avgHr) + sub(e.pctHr)}</td><td>${fmtInt(e.total)}${sub(pctTot)}</td><td>${mesoCell(e)}</td><td><button class="hx" data-start="${e.start}" title="刪除這筆">✕</button></td></tr>`;
   }).join('');
   const wk = Date.now() - 7 * 86400e3, r = L.filter(e => e.end >= wk), act = r.reduce((a, e) => a + e.act, 0), tot = r.reduce((a, e) => a + e.total, 0);
   if (sum) sum.textContent = act > 0 ? `近 7 天：${r.length} 段、共 ${fmtDur(act)}、平均每小時 ${fmtInt(tot / act * 3600)} 經驗` : '';
