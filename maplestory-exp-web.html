@@ -158,6 +158,10 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 label.chk{display:inline-flex;gap:6px;align-items:center}
 .card input[type=number]{font:inherit;width:62px;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--tx)}
 #buffStatus{margin:10px 0 0;font-weight:600;min-height:1.6em}
+.card [hidden]{display:none!important}
+.seg{display:flex;gap:8px}
+.seg button.b{flex:1 1 0;padding:9px 12px;font-weight:600}
+.seg button.b:not(.pri){color:var(--mut)}
 </style>
 </head>
 <body>
@@ -259,9 +263,19 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
   </section>
   <section class="card">
     <h2><b>6</b>神聖祈禱提醒</h2>
+    <div class="seg" id="buffMode" role="group" aria-label="祈禱提醒模式">
+      <button type="button" class="b" data-mode="priest" aria-pressed="true">祭司版</button>
+      <button type="button" class="b" data-mode="fighter" aria-pressed="false">打手版</button>
+    </div>
+    <p class="mut" id="buffModeDesc" style="margin:8px 0 12px"></p>
     <div class="row">
       <label class="chk"><input type="checkbox" id="buffOn"> 啟用祈禱偵測</label>
-      <label class="chk">超過 <input type="number" id="buffSec" min="1" max="60" step="1"> 秒沒有祈禱就提醒</label>
+    </div>
+    <div class="row" style="margin-top:8px" data-for="fighter" hidden>
+      <label class="chk">祈禱剩餘 ≤ <input type="number" id="buffWarn" min="1" max="120" step="1"> 秒時，提醒我準備補祈禱</label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label class="chk"><span id="buffSecPre">超過</span> <input type="number" id="buffSec" min="1" max="60" step="1"> <span id="buffSecPost">秒沒有祈禱就提醒</span></label>
     </div>
     <div class="row" style="margin-top:8px">
       <span class="mut">提醒方式：</span>
@@ -276,10 +290,16 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
     </div>
     <p class="mut" id="buffDiscordMsg" style="margin:4px 0 0">Discord 伺服器設定 → 整合 → Webhook 可建立網址；網址只存在這個瀏覽器，請勿分享給他人。</p>
     <p id="buffStatus">尚未開始：請先分享遊戲畫面</p>
-    <div class="dbg"><span>比對到的圖示</span><span><canvas id="dbgBuff" width="31" height="32"></canvas></span></div>
+    <div class="dbg">
+      <span>比對到的圖示</span><span><canvas id="dbgBuff" width="31" height="32"></canvas></span>
+      <span data-for="fighter" hidden>剩餘秒數擷取</span><span data-for="fighter" hidden><canvas id="dbgBuffSec" width="1" height="1"></canvas> <span id="dbgBuffSecT" class="mut"></span></span>
+    </div>
     <ul class="tips">
       <li>會在遊戲畫面右上角的 Buff 欄尋找「神聖祈禱」圖示；圖示隨剩餘時間變暗也認得出來，位置、順序改變也沒關係。</li>
-      <li>連續超過設定秒數都找不到，才會提醒一次；之後再偵測到祈禱，才會重新武裝。</li>
+      <li data-for="priest">連續超過設定秒數都找不到，才會提醒一次；之後再偵測到祈禱，才會重新武裝。</li>
+      <li data-for="fighter" hidden>打手版會讀祈禱圖示左下角「黃色」的剩餘秒數（只讀黃色數字，白色數字不讀）。剩餘秒數 ≤ 設定值時提醒一次，補完祈禱（數字變回去、或圖示重新出現）後自動重新武裝。</li>
+      <li data-for="fighter" hidden>祈禱完全消失時，超過設定秒數也會再提醒一次（跟祭司版一樣）。</li>
+      <li data-for="fighter" hidden>剩餘秒數要連續讀到吻合倒數的數字才會採用，避免誤讀造成誤報；可以從上面的「剩餘秒數擷取」確認讀到什麼。</li>
       <li>需要先讀到遊戲介面（LV／EXP）才會偵測；按「⏸ 暫停統計」時也會一起暫停偵測。</li>
       <li>系統通知需要允許瀏覽器通知權限；提示音需要在本頁點擊過任何地方（瀏覽器限制），按「開始分享畫面」即可。</li>
     </ul>
@@ -347,15 +367,22 @@ function loadScript(url) {
 const Settings = {
   d: { show_player_info: true, show_ten_min_exp: true, show_meso: true, show_level_estimate: true, show_active_time: true,
        show_percent: true, show_clock: true, font_size: 12, idle_timeout_min: 2.0, ui_scale: 100, manual_lv_box: null, manual_exp_box: null,
-       buff_watch: true, buff_timeout_sec: 3, buff_sound: true, buff_notify: true, buff_alert: true, buff_discord: false, buff_webhook: '' },
+       buff_watch_priest: true, buff_watch_fighter: true, buff_timeout_priest: 3, buff_timeout_fighter: 3, buff_sound: true, buff_notify: true, buff_alert: true, buff_discord: false, buff_webhook: '', buff_mode: 'priest', buff_warn_sec: 30, buff_split_v: 2 },
   load() {
     try {
       const j = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null'); if (!j || typeof j !== 'object') return;
-      for (const k of ['show_player_info', 'show_ten_min_exp', 'show_meso', 'show_level_estimate', 'show_active_time', 'show_percent', 'show_clock', 'buff_watch', 'buff_sound', 'buff_notify', 'buff_alert', 'buff_discord'])
+      if ('buff_watch' in j) { if (!('buff_watch_priest' in j)) j.buff_watch_priest = j.buff_watch; if (!('buff_watch_fighter' in j)) j.buff_watch_fighter = j.buff_watch; }   // 舊版共用一個開關 → 兩個版本各繼承一份
+      for (const k of ['show_player_info', 'show_ten_min_exp', 'show_meso', 'show_level_estimate', 'show_active_time', 'show_percent', 'show_clock', 'buff_watch_priest', 'buff_watch_fighter', 'buff_sound', 'buff_notify', 'buff_alert', 'buff_discord'])
         if (k in j) this.d[k] = !!j[k];
       const idle = Number(j.idle_timeout_min); if (idle >= 0 && idle <= 5) this.d.idle_timeout_min = idle;
       if (typeof j.buff_webhook === 'string') this.d.buff_webhook = j.buff_webhook.trim();
-      const bsec = Number(j.buff_timeout_sec); if (bsec >= 1 && bsec <= 60) this.d.buff_timeout_sec = Math.round(bsec);
+      for (const m of ['priest', 'fighter']) {   // 祭司版／打手版各自的「消失幾秒就提醒」（舊版共用 buff_timeout_sec）
+        const bsec = Number(j['buff_timeout_' + m] !== undefined ? j['buff_timeout_' + m] : j.buff_timeout_sec);
+        if (bsec >= 1 && bsec <= 60) this.d['buff_timeout_' + m] = Math.round(bsec);
+      }
+      if (j.buff_mode === 'priest' || j.buff_mode === 'fighter') this.d.buff_mode = j.buff_mode;
+      if (j.buff_split_v !== 2) this.d['buff_watch_' + (this.d.buff_mode === 'priest' ? 'fighter' : 'priest')] = false;   // 一次性：剛分開時，另一個版本是從舊的共用開關複製來的、不是你勾的，先關掉避免兩邊同時提醒
+      const bwarn = Number(j.buff_warn_sec); if (bwarn >= 1 && bwarn <= 120) this.d.buff_warn_sec = Math.round(bwarn);
       const sc = parseInt(j.ui_scale); if (sc >= 50 && sc <= 300) this.d.ui_scale = sc;
       const fs = parseInt(j.font_size); if (fs >= FONT_MIN && fs <= FONT_MAX) this.d.font_size = fs;
       const box = v => (Array.isArray(v) && v.length === 4 && v.every(Number.isFinite)) ? v.map(Math.round) : null;
@@ -1302,7 +1329,8 @@ const BuffWatch = {
   W: 31, H: 32, gray: null, ready: false, models: new Map(),
   cv: null, ctx: null, g: null,
   last: null, lastScale: 0, miss: 0, lastStep: 0,
-  missingSince: 0, missSec: 0, alarmed: false, alerting: false,
+  mm: { priest: { since: 0, sec: 0, alarmed: false }, fighter: { since: 0, sec: 0, alarmed: false }}, alerting: false,   // mm：兩個版本各自的「祈禱消失」計時，互不影響
+  armedW: true, secA: null, secBad: null, secNone: 0, secInfo: null, dKey: null, dRes: null, cvS: null, cvB: null,   // 打手版：剩餘秒數提醒用
   state: 'idle', info: null, lastUi: 0, lastCrop: 0,
 
   async init() {
@@ -1374,14 +1402,20 @@ const BuffWatch = {
     return best;
   },
 
-  reset() { this.last = null; this.miss = 0; this.missingSince = 0; this.missSec = 0; this.alarmed = false; this.lastStep = 0; this.state = 'idle'; this.info = null; this.renderUi(performance.now(), true); },
+  // 重新武裝所有提醒（切換模式、重置時呼叫）
+  rearmMode(m) { const o = this.mm[m]; o.since = 0; o.sec = 0; o.alarmed = false; if (m === 'fighter') { this.armedW = true; this.secA = null; this.secBad = null; this.secNone = 0; this.secInfo = null; this.dKey = null; this.dRes = null; } },
+  rearm() { this.rearmMode('priest'); this.rearmMode('fighter'); this.armedW = true; this.secA = null; this.secBad = null; this.secNone = 0; this.secInfo = null; this.dKey = null; this.dRes = null; },
 
-  // 每個 tick 呼叫一次（需要有遊戲畫面）
+  reset() { this.last = null; this.miss = 0; this.lastStep = 0; this.state = 'idle'; this.info = null; this.rearm(); this.renderUi(performance.now(), true); },
+
+  // 每個 tick 呼叫一次（需要有遊戲畫面）。
+  // 打手版要讀剩餘秒數（跑 OCR），所以會回傳 Promise 讓主迴圈等它；祭司版回傳 undefined。
   step(src) {
     if (!this.ready) return;
     const S = Settings.d, now = performance.now();
-    if (!S.buff_watch) { this.missingSince = 0; this.alarmed = false; this.state = 'off'; this.lastStep = now; this.renderUi(now); return; }
-    if (this.lastStep && now - this.lastStep > 2000) this.missingSince = 0;   // 中間停過（暫停統計、讀不到介面、被 alert 卡住）→ 重新計時
+    const pOn = S.buff_watch_priest, fOn = S.buff_watch_fighter;   // 兩個版本各自獨立：只有「打勾」的版本才會偵測、才會提醒（含 Discord）
+    if (!pOn && !fOn) { this.rearm(); this.state = 'off'; this.lastStep = now; this.renderUi(now); return; }
+    if (this.lastStep && now - this.lastStep > 2000) { this.mm.priest.since = this.mm.fighter.since = 0; this.secA = null; this.secBad = null; }   // 中間停過（暫停統計、讀不到介面、被 alert 卡住）→ 重新計時
     this.lastStep = now;
     const s0 = extractor && extractor.available ? Math.round(extractor.scale * 100) / 100 : 1, cand = [];
     const add = s => { s = Math.round(s * 100) / 100; if (s >= 0.3 && s <= 4 && !cand.includes(s)) cand.push(s); };
@@ -1389,7 +1423,7 @@ const BuffWatch = {
     add(s0);
     if (!this.last && this.miss % 4 === 3) { add(1); add(BUFF_FALLBACK_SCALES[(this.miss >> 2) % BUFF_FALLBACK_SCALES.length]); }   // 偶爾試其他縮放
     const gr = this.grab(src, Math.max(1, ...cand));
-    let found = null, fm = null;
+    let found = null, fm = null, job;
     for (const s of cand) {
       const m = this.model(s); if (!m || m.sw > gr.rw || m.sh > gr.rh) continue;
       let r = null;
@@ -1398,22 +1432,114 @@ const BuffWatch = {
       if (r && r.score >= BUFF_THR) { found = { x: r.x, y: r.y, score: r.score, scale: s }; fm = m; break; }
     }
     if (found) {
-      this.last = found; this.lastScale = found.scale; this.miss = 0; this.missingSince = 0; this.alarmed = false; this.state = 'ok';
+      const wasMiss = this.state === 'miss';
+      this.last = found; this.lastScale = found.scale; this.miss = 0; this.state = 'ok';
+      for (const m of ['priest', 'fighter']) { const o = this.mm[m]; o.since = 0; o.sec = 0; o.alarmed = false; }
       this.info = { x: found.x + gr.x0, y: found.y, score: found.score, scale: found.scale };
+      if (wasMiss) { this.armedW = true; this.secA = null; this.secBad = null; }   // 祈禱重新出現 = 補過了 → 剩餘秒數提醒重新武裝
       if (now - this.lastCrop > 500) { this.lastCrop = now; this.showCrop(gr, fm, found); }
+      if (fOn) job = this.secStep(gr, found, fm, now); else { this.secInfo = null; this.secNone = 0; }
     } else {
-      this.last = null; this.miss++; this.state = 'miss';
-      if (!this.missingSince) this.missingSince = now;
-      this.missSec = (now - this.missingSince) / 1000;
-      if (!this.alarmed && this.missSec >= S.buff_timeout_sec) { this.alarmed = true; this.fire(false); }
+      this.last = null; this.miss++; this.state = 'miss'; this.secInfo = null; this.secNone = 0;
+      for (const m of ['priest', 'fighter']) {
+        const o = this.mm[m];
+        if (!S['buff_watch_' + m]) { o.since = 0; o.sec = 0; o.alarmed = false; continue; }   // 沒打勾的版本：不計時、不提醒
+        if (!o.since) o.since = now;
+        o.sec = (now - o.since) / 1000;
+        if (!o.alarmed && o.sec >= S['buff_timeout_' + m]) { o.alarmed = true; this.fire('missing', undefined, m); }
+      }
     }
     this.renderUi(now);
+    return job;
   },
 
-  fire(test) {
-    const S = Settings.d;
-    const title = test ? '【測試】神聖祈禱提醒' : '神聖祈禱沒有了！';
-    const body = test ? '這是測試提醒，偵測功能正常。' : `已經超過 ${S.buff_timeout_sec} 秒沒有偵測到「神聖祈禱」，記得補祈禱！`;
+  // ---------------- 打手版：讀圖示左下角的「黃色剩餘秒數」 ----------------
+  // 數字在圖示左下角（x < 21*scale、y ≥ 19*scale）。圖示本體是橘／米色、變暗後是藍灰色，只有數字是黃色，
+  // 所以用「色相是黃色」把數字單獨挑出來（不靠固定色碼，UI 縮放造成的邊緣模糊也能用），再放大、黑字白底丟給 OCR。
+  digitCrop(gr, f, m) {
+    const s = f.scale, x0 = f.x, y0 = f.y + Math.round(19 * s);
+    const w = Math.min(Math.round(21 * s) + 1, gr.rw - x0), h = Math.min(f.y + m.sh, gr.rh) - y0;
+    if (w < 6 || h < 4) return null;
+    const d = gr.d, rw = gr.rw, mk = new Uint8Array(w * h);
+    let cnt = 0, minx = w, maxx = -1, miny = h, maxy = -1;
+    for (let yy = 0; yy < h; yy++) {
+      let p = ((y0 + yy) * rw + x0) * 4;
+      for (let xx = 0; xx < w; xx++, p += 4) {
+        const r = d[p], g = d[p + 1], b = d[p + 2];
+        if (r >= 90 && g >= 0.76 * r && g <= 1.12 * r && b <= 0.72 * r) {   // 數字內部是淡黃（約 #D0C670，藍色分量可達紅色的 0.6），只有邊緣才是純黃，所以藍色門檻不能太低
+          mk[yy * w + xx] = 1; cnt++;
+          if (xx < minx) minx = xx; if (xx > maxx) maxx = xx; if (yy < miny) miny = yy; if (yy > maxy) maxy = yy;
+        }
+      }
+    }
+    if (cnt < Math.max(5, Math.round(7 * s * s)) || cnt > w * h * 0.45) return null;          // 沒有黃色數字（或根本是雜訊）
+    const bw = maxx - minx + 1, bh = maxy - miny + 1;
+    if (bh < h * 0.4 || bw < 2) return null;
+    const key = new Uint8Array(bw * bh + 2); key[0] = bw; key[1] = bh;                         // 遮罩內容：用來判斷數字有沒有變
+    const sm = this.cvS || (this.cvS = document.createElement('canvas')), sx = sm.getContext('2d');
+    sm.width = bw; sm.height = bh;
+    const id = sx.createImageData(bw, bh), o = id.data;
+    for (let yy = 0; yy < bh; yy++) for (let xx = 0; xx < bw; xx++) {
+      const on = mk[(miny + yy) * w + minx + xx]; key[2 + yy * bw + xx] = on;
+      const q = (yy * bw + xx) * 4, v = on ? 0 : 255; o[q] = o[q + 1] = o[q + 2] = v; o[q + 3] = 255;
+    }
+    sx.putImageData(id, 0, 0);
+    const k = 32 / bh, tw = Math.max(1, Math.round(bw * k)), pad = 16;                         // 放大到 32px 高、四周留白，跟文字辨識模型習慣的輸入相近
+    const big = this.cvB || (this.cvB = document.createElement('canvas')), bx = big.getContext('2d', { willReadFrequently: true });
+    big.width = tw + 2 * pad; big.height = 32 + 2 * pad;
+    bx.fillStyle = '#fff'; bx.fillRect(0, 0, big.width, big.height);
+    bx.imageSmoothingEnabled = true; bx.imageSmoothingQuality = 'high';
+    bx.drawImage(sm, 0, 0, bw, bh, pad, pad, tw, 32);
+    return { img: bx.getImageData(0, 0, big.width, big.height), key };
+  },
+  async ocrDigits(crop) {
+    if (this.dKey && sameBytes(this.dKey, crop.key)) return this.dRes;                          // 數字沒變就不用重跑
+    let r; try { r = await recognizer.recognize(crop.img); } catch (e) { console.warn('Buff seconds recognition failed', e); return null; }
+    const t = r.text.replace(/[\s\u3000]/g, '');
+    const res = { text: t, conf: Math.min(r.conf, r.min), v: /^\d{1,3}$/.test(t) ? parseInt(t, 10) : -1 };
+    this.dKey = crop.key; this.dRes = res; return res;
+  },
+  async secStep(gr, f, m, now) {
+    const S = Settings.d, crop = this.digitCrop(gr, f, m);
+    if (!crop) {                                                                                  // 圖示上沒有黃色數字
+      this.secInfo = { none: true };
+      if (!this.secNone) this.secNone = now;
+      if (now - this.secNone >= 2000) { this.armedW = true; this.secA = null; this.secBad = null; }   // 數字消失 2 秒以上 = 補過祈禱了（變回分鐘顯示）→ 重新武裝
+      return;
+    }
+    this.secNone = 0; this.showSecCrop(crop.img);
+    if (typeof recognizer === 'undefined' || !recognizer) return;
+    const res = await this.ocrDigits(crop); if (!res) return;
+    if (res.v < 0 || res.conf < 0.8) { this.secInfo = { text: res.text, conf: res.conf, bad: true }; return; }
+    // 倒數只會一秒一秒往下走（補祈禱才會跳高）。用「上次採用的讀數 − 經過的時間」當預測：
+    //   吻合（±3 秒）→ 直接採用；比預測小很多 → 一定是誤讀，丟掉；比預測大很多（或第一次讀到）→ 先記著，≥0.7 秒後再讀到吻合的才採用
+    const t = performance.now(); let a = this.secA; if (a && t - a.t > 10000) a = this.secA = null;
+    const b = this.secBad, info = { text: res.text, conf: res.conf, v: res.v };
+    let ok = false;
+    if (a) {
+      const pa = a.v - (t - a.t) / 1000;
+      if (Math.abs(res.v - pa) <= 3) ok = true;
+      else if (res.v < pa) { this.secInfo = { ...info, bad: true }; return; }
+    }
+    if (!ok && b && t - b.t >= 700 && t - b.t <= 10000 && Math.abs(res.v - (b.v - (t - b.t) / 1000)) <= 2) ok = true;
+    if (!ok) { if (!b || t - b.t >= 700) this.secBad = { v: res.v, t }; this.secInfo = { ...info, pending: true }; return; }
+    this.secBad = null; this.secA = { v: res.v, t }; this.secInfo = info;
+    if (res.v > S.buff_warn_sec + 3) this.armedW = true;                                          // 數字跳高 = 補過祈禱了
+    if (res.v <= S.buff_warn_sec && this.armedW) { this.armedW = false; this.fire('warn', res.v); }
+  },
+  showSecCrop(img) {
+    const c = $('#dbgBuffSec'); if (!c) return;
+    if (c.width !== img.width || c.height !== img.height) { c.width = img.width; c.height = img.height; }
+    c.getContext('2d').putImageData(img, 0, 0);
+  },
+
+  fire(kind, v, mode) {   // kind: 'test' | 'warn'（剩餘秒數不多）| 'missing'（祈禱消失）
+    const S = Settings.d, m = mode || S.buff_mode, fighter = m === 'fighter';
+    let title, body;
+    if (kind === 'test') { title = '【測試】神聖祈禱提醒'; body = '這是測試提醒，偵測功能正常。'; }
+    else if (kind === 'warn') { title = `神聖祈禱剩 ${v} 秒！`; body = `快準備請祭司補祈禱（設定：剩 ${S.buff_warn_sec} 秒以內提醒）。`; }
+    else if (fighter) { title = '神聖祈禱已經消失！'; body = `已經超過 ${S['buff_timeout_' + m]} 秒沒有偵測到「神聖祈禱」，快請祭司補祈禱！`; }
+    else { title = '神聖祈禱沒有了！'; body = `已經超過 ${S['buff_timeout_' + m]} 秒沒有偵測到「神聖祈禱」，記得補祈禱！`; }
     if (S.buff_sound) beepAlarm();
     if (S.buff_notify && 'Notification' in window && Notification.permission === 'granted') {
       try { const n = new Notification(title, { body, tag: 'mxt-holy-symbol', requireInteraction: true }); n.onclick = () => { window.focus(); n.close(); }; } catch (e) { /* ignore */ }
@@ -1436,15 +1562,30 @@ const BuffWatch = {
   renderUi(now, force) {
     if (!force && now - this.lastUi < 250) return; this.lastUi = now;
     const el = $('#buffStatus'); if (!el) return;
+    const S = Settings.d, fighter = S.buff_mode === 'fighter';
     const stale = this.state !== 'idle' && this.state !== 'off' && this.lastStep && now - this.lastStep > 2500;
+    const mo = this.mm[S.buff_mode];
     let t, c = 'var(--mut)';
-    if (this.state === 'off') t = '偵測已關閉';
+    if (!S['buff_watch_' + S.buff_mode] || this.state === 'off') t = `${fighter ? '打手版' : '祭司版'}偵測已關閉（沒打勾就不會偵測，也不會提醒）`;
     else if (this.state === 'idle') t = '尚未開始：請先分享遊戲畫面';
     else if (stale) t = '目前沒有在偵測（統計暫停中，或還沒讀到遊戲介面）';
-    else if (this.state === 'ok') { t = `✅ 偵測到神聖祈禱（相似度 ${this.info.score.toFixed(2)}｜位置 ${this.info.x},${this.info.y}｜縮放 ${this.info.scale}）`; c = 'var(--ok)'; }
-    else { t = `❌ 沒有偵測到神聖祈禱，已持續 ${this.missSec.toFixed(1)} 秒` + (this.alarmed ? '（已提醒）' : ''); c = 'var(--err)'; }
-    if (Settings.d.buff_notify && 'Notification' in window && Notification.permission === 'denied') t += '｜⚠ 瀏覽器已封鎖通知，請到網址列左邊的網站設定開啟';
+    else if (this.state === 'ok') {
+      const si = this.secInfo, head = '✅ 偵測到神聖祈禱';
+      if (!fighter) { t = `${head}（相似度 ${this.info.score.toFixed(2)}｜位置 ${this.info.x},${this.info.y}｜縮放 ${this.info.scale}）`; c = 'var(--ok)'; }
+      else if (!si) { t = `${head}｜讀取剩餘秒數中…`; }
+      else if (si.none) { t = `${head}｜還沒看到黃色的剩餘秒數（剩餘時間還很多）`; c = 'var(--ok)'; }
+      else if (si.v === undefined || si.bad || si.pending) { t = `${head}｜讀到「${si.text}」（信心 ${si.conf.toFixed(2)}）${si.pending ? '，確認中…' : '，不採用'}`; }
+      else {
+        const low = si.v <= S.buff_warn_sec;
+        t = `${low ? '⚠️' : '✅'} 神聖祈禱剩餘 ${si.v} 秒｜` + (low ? (this.armedW ? '已達提醒秒數' : '已提醒') : `剩 ${S.buff_warn_sec} 秒以內會提醒`);
+        c = low ? 'var(--warn)' : 'var(--ok)';
+      }
+    }
+    else { t = `❌ 沒有偵測到神聖祈禱，已持續 ${mo.sec.toFixed(1)} 秒` + (mo.alarmed ? '（已提醒）' : ''); c = 'var(--err)'; }
+    if (S.buff_notify && 'Notification' in window && Notification.permission === 'denied') t += '｜⚠ 瀏覽器已封鎖通知，請到網址列左邊的網站設定開啟';
     el.textContent = t; el.style.color = c;
+    const dt = $('#dbgBuffSecT');
+    if (dt) { const si = fighter && S.buff_watch_fighter && this.state === 'ok' ? this.secInfo : null; dt.textContent = !si ? '' : si.none ? '沒有黃色數字' : `“${si.text}”  信心 ${si.conf.toFixed(2)}${si.bad ? '（不採用）' : si.pending ? '（確認中）' : ''}`; }
   },
 };
 
@@ -1460,10 +1601,12 @@ async function tick() {
     await extractor.ensureDetected(src);
     if (!extractor.available) { tracker.setStatus('找不到遊戲介面，偵測中...'); updateDbg(src); return; }
     const src2 = frameSource() || src;
-    try { BuffWatch.step(src2); } catch (e) { console.warn('buff watch', e); }   // 神聖祈禱偵測（出錯也不影響經驗讀取）
+    let buffP = null;
+    try { buffP = BuffWatch.step(src2); } catch (e) { console.warn('buff watch', e); }   // 神聖祈禱偵測（出錯也不影響經驗讀取）；打手版會回傳一個等 OCR 的 Promise
     const lvImg = extractor.crop(src2, 'lv'), expImg = extractor.crop(src2, 'exp');
     const mapImg = extractor.cropMap(src2);                   // 地圖名稱（每秒才掃一次，其餘 tick 回傳 null）
     const mesoImg = extractor.cropMeso(src2);                 // 道具欄沒開 → null（同樣在 await 之前同步擷取）
+    if (buffP) { try { await buffP; } catch (e) { console.warn('buff ocr', e); } }   // 影格都已擷取完，這時才能 await（模型一次只跑一個辨識，所以排在 LV／EXP 前面依序跑）
     const lv = await extractor.readLevel(lvImg), ex = await extractor.readExp(expImg);
     let mv = null, mskip = false;
     if (mesoImg) { const m = await extractor.readMeso(mesoImg); if (m.v >= 0 && m.conf >= 0.9) mv = m.v; else mskip = true; }
@@ -1764,21 +1907,52 @@ async function boot() {
   Settings.load();
   {   // 神聖祈禱提醒：把設定值放進控制項、綁定事件
     const S = Settings.d;
-    const bind = (id, key, num) => {
+    const bind = (id, key, num, min = 1, max = 60, def = 3) => {
       const el = $(id); if (num) el.value = S[key]; else el.checked = S[key];
       el.onchange = () => {
-        if (num) { let v = Number(el.value); if (!(v >= 1)) v = 3; v = clamp(Math.round(v), 1, 60); el.value = v; S[key] = v; }
+        if (num) { let v = Number(el.value); if (!(v >= min)) v = def; v = clamp(Math.round(v), min, max); el.value = v; S[key] = v; }
         else S[key] = el.checked;
         Settings.save();
         if (!num && el.checked && key === 'buff_notify') askNotify();
-        if (key === 'buff_watch') { unlockAudio(); askNotify(); BuffWatch.missingSince = 0; BuffWatch.alarmed = false; }
         BuffWatch.renderUi(performance.now(), true);
       };
     };
-    bind('#buffOn', 'buff_watch'); bind('#buffSec', 'buff_timeout_sec', true);
+    bind('#buffWarn', 'buff_warn_sec', true, 1, 120, 30);
+    {   // 祭司版／打手版：同一格，用按鈕切換
+      const DESC = {
+        priest: '祭司版：自己施放神聖祈禱的人用。畫面上超過設定秒數都看不到祈禱圖示，就提醒你補祈禱。',
+        fighter: '打手版：吃祭司祈禱的人用。讀祈禱圖示左下角的剩餘秒數，剩下的秒數 ≤ 設定值就提醒你準備請祭司補祈禱；祈禱完全消失時也會再提醒。',
+      };
+      const updTabs = () => document.querySelectorAll('#buffMode button').forEach(b => { b.textContent = (b.dataset.mode === 'fighter' ? '打手版' : '祭司版') + (S['buff_watch_' + b.dataset.mode] ? '　✔ 偵測中' : '　✘ 已關閉'); });
+      const applyMode = () => {
+        const f = S.buff_mode === 'fighter';
+        updTabs();
+        $('#buffOn').checked = S['buff_watch_' + S.buff_mode];       // 兩個版本各自有自己的開關與秒數
+        $('#buffSec').value = S['buff_timeout_' + S.buff_mode];
+        document.querySelectorAll('#buffMode button').forEach(b => { const on = b.dataset.mode === S.buff_mode; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+        document.querySelectorAll('[data-for]').forEach(e => { e.hidden = e.dataset.for !== S.buff_mode; });
+        $('#buffSecPre').textContent = f ? '祈禱完全消失超過' : '超過';
+        $('#buffSecPost').textContent = f ? '秒也提醒' : '秒沒有祈禱就提醒';
+        $('#buffModeDesc').textContent = DESC[S.buff_mode];
+      };
+      applyMode();
+      $('#buffOn').onchange = e => {
+        S['buff_watch_' + S.buff_mode] = e.target.checked; Settings.save(); updTabs();
+        if (e.target.checked) { unlockAudio(); askNotify(); }
+        BuffWatch.rearmMode(S.buff_mode); BuffWatch.renderUi(performance.now(), true);
+      };
+      $('#buffSec').onchange = e => {
+        let v = Number(e.target.value); if (!(v >= 1)) v = 3; v = clamp(Math.round(v), 1, 60);
+        e.target.value = v; S['buff_timeout_' + S.buff_mode] = v; Settings.save(); BuffWatch.renderUi(performance.now(), true);
+      };
+      document.querySelectorAll('#buffMode button').forEach(b => b.onclick = () => {
+        if (S.buff_mode === b.dataset.mode) return;
+        S.buff_mode = b.dataset.mode; Settings.save(); applyMode(); BuffWatch.renderUi(performance.now(), true);   // 只是切換要看／設定哪個版本，不影響另一個版本的偵測
+      });
+    }
     bind('#buffDiscord', 'buff_discord'); bind('#buffSound', 'buff_sound'); bind('#buffNotify', 'buff_notify'); bind('#buffAlert', 'buff_alert');
     { const w = $('#buffWebhook'); w.value = S.buff_webhook || ''; w.onchange = () => { S.buff_webhook = w.value.trim(); Settings.save(); const m = $('#buffDiscordMsg'); if (S.buff_webhook && !WEBHOOK_RE.test(S.buff_webhook)) { m.textContent = 'Webhook 網址格式不正確。'; m.style.color = 'var(--err)'; } else { m.textContent = S.buff_webhook ? 'Webhook 已儲存，按「測試提醒」試送。' : ''; m.style.color = 'var(--mut)'; } }; }
-    $('#btnBuffTest').onclick = async () => { unlockAudio(); await askNotify(); BuffWatch.fire(true); };
+    $('#btnBuffTest').onclick = async () => { unlockAudio(); await askNotify(); BuffWatch.fire('test', undefined, Settings.d.buff_mode); };
     ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, unlockAudio, { passive: true }));
     BuffWatch.init().catch(e => console.warn('祈禱圖示樣板載入失敗', e));
     BuffWatch.renderUi(performance.now(), true);
