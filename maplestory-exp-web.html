@@ -299,6 +299,10 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
       <label class="chk"><input type="checkbox" id="buffDiscord"> Discord 通知</label>
       <input type="text" id="buffWebhook" placeholder="貼上 Discord Webhook 網址（https://discord.com/api/webhooks/...）" autocomplete="off" spellcheck="false" style="flex:1;min-width:260px;font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--tx)">
     </div>
+    <div class="row" style="margin-top:8px">
+      <span class="mut">機器人頭像網址：</span>
+      <input type="text" id="buffAvatar" placeholder="（選填）公開圖片網址 https://...，留空就用 Discord 內設定的頭像" autocomplete="off" spellcheck="false" style="flex:1;min-width:260px;font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--tx)">
+    </div>
     <p class="mut" id="buffDiscordMsg" style="margin:4px 0 0">Discord 伺服器設定 → 整合 → Webhook 可建立網址；網址只存在這個瀏覽器，請勿分享給他人。</p>
     <p id="buffStatus">尚未開始：請先分享遊戲畫面</p>
     <div class="dbg">
@@ -380,7 +384,7 @@ function loadScript(url) {
 const Settings = {
   d: { show_player_info: true, show_ten_min_exp: true, show_meso: true, show_level_estimate: true, show_active_time: true,
        show_percent: true, show_clock: true, font_size: 12, idle_timeout_min: 2.0, ui_scale: 100, manual_lv_box: null, manual_exp_box: null,
-       buff_watch_priest: true, buff_watch_fighter: true, buff_timeout_priest: 3, buff_timeout_fighter: 3, buff_sound: true, buff_notify: true, buff_alert: true, buff_discord: false, buff_webhook: '', buff_mode: 'priest', buff_warn_sec: 30, buff_split_v: 2,
+       buff_watch_priest: true, buff_watch_fighter: true, buff_timeout_priest: 3, buff_timeout_fighter: 3, buff_sound: true, buff_notify: true, buff_alert: true, buff_discord: false, buff_webhook: '', buff_avatar: '', buff_mode: 'priest', buff_warn_sec: 30, buff_split_v: 2,
        cast_on: false, cast_warn_on: false, cast_warn_at: 98, cast_count: 0 },
   load() {
     try {
@@ -392,6 +396,7 @@ const Settings = {
         const cc = Number(j.cast_count); if (cc >= 0 && cc <= 99999) this.d.cast_count = Math.round(cc); }
       const idle = Number(j.idle_timeout_min); if (idle >= 0 && idle <= 5) this.d.idle_timeout_min = idle;
       if (typeof j.buff_webhook === 'string') this.d.buff_webhook = j.buff_webhook.trim();
+      if (typeof j.buff_avatar === 'string') this.d.buff_avatar = j.buff_avatar.trim();
       for (const m of ['priest', 'fighter']) {   // 祭司版／打手版各自的「消失幾秒就提醒」（舊版共用 buff_timeout_sec）
         const bsec = Number(j['buff_timeout_' + m] !== undefined ? j['buff_timeout_' + m] : j.buff_timeout_sec);
         if (bsec >= 1 && bsec <= 60) this.d['buff_timeout_' + m] = Math.round(bsec);
@@ -1333,10 +1338,23 @@ async function sendDiscord(title, body) {
   const el = $('#buffDiscordMsg'), url = (Settings.d.buff_webhook || '').trim();
   const say = (t, c) => { if (el) { el.textContent = t; el.style.color = c || 'var(--mut)'; } };
   if (!WEBHOOK_RE.test(url)) { say('Webhook 網址格式不正確，沒有送出。', 'var(--err)'); return; }
+  const av = /^https:\/\/\S+$/i.test((Settings.d.buff_avatar || '').trim()) ? Settings.d.buff_avatar.trim() : undefined;   // 頭像網址要是公開的 https 圖片
   try {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: '楓之谷練功提醒', content: `⚠️ **${title}**\n${body}`, allowed_mentions: { parse: [] } }) });
-    if (r.ok) say('Discord 已送出（' + new Date().toLocaleTimeString() + '）', 'var(--ok)');
+    let r;
+    try {   // 把祈禱圖示放大（不模糊）後當縮圖附在訊息裡
+      const img = new Image(); img.src = TPL_BUFF; await img.decode();
+      const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+      const cx = cv.getContext('2d'); cx.imageSmoothingEnabled = false; cx.drawImage(img, 0, 0, 128, 128);
+      const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+      const fd = new FormData();
+      fd.append('payload_json', JSON.stringify({ username: '楓之谷練功提醒', avatar_url: av, content: `⚠️ **${title}**`, allowed_mentions: { parse: [] },
+        embeds: [{ description: body, color: 0xF5B041, thumbnail: { url: 'attachment://holy.png' } }] }));
+      fd.append('files[0]', blob, 'holy.png');
+      r = await fetch(url, { method: 'POST', body: fd });
+    } catch (e0) {   // 圖片處理失敗就退回純文字
+      r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: '楓之谷練功提醒', avatar_url: av, content: `⚠️ **${title}**\n${body}`, allowed_mentions: { parse: [] } }) });
+    }    if (r.ok) say('Discord 已送出（' + new Date().toLocaleTimeString() + '）', 'var(--ok)');
     else say(`Discord 回應錯誤 ${r.status}${r.status === 404 ? '（Webhook 已被刪除或網址錯誤）' : r.status === 429 ? '（送太頻繁）' : ''}`, 'var(--err)');
   } catch (e) { say('Discord 送出失敗：' + e.message, 'var(--err)'); }
 }
@@ -2020,6 +2038,7 @@ async function boot() {
       $('#btnCastReset').onclick = () => { if (S.cast_count === 0 || confirm('確定要把祈禱施放次數歸零嗎？')) BuffWatch.castReset(); };
       BuffWatch.cAlarmed = S.cast_warn_on && S.cast_count >= S.cast_warn_at; BuffWatch.castUi();
     }
+    { const a = $('#buffAvatar'); a.value = S.buff_avatar || ''; a.onchange = () => { S.buff_avatar = a.value.trim(); Settings.save(); const m = $('#buffDiscordMsg'); if (S.buff_avatar && !/^https:\/\/\S+$/i.test(S.buff_avatar)) { m.textContent = '頭像網址必須是 https:// 開頭的公開圖片網址，目前不會套用。'; m.style.color = 'var(--err)'; } else { m.textContent = S.buff_avatar ? '頭像網址已儲存，按「測試提醒」試送。' : ''; m.style.color = 'var(--mut)'; } }; }
     $('#btnBuffTest').onclick = async () => { unlockAudio(); await askNotify(); BuffWatch.fire('test', undefined, Settings.d.buff_mode); };
     ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, unlockAudio, { passive: true }));
     BuffWatch.init().catch(e => console.warn('祈禱圖示樣板載入失敗', e));
