@@ -277,6 +277,17 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
     <div class="row" style="margin-top:8px">
       <label class="chk"><span id="buffSecPre">超過</span> <input type="number" id="buffSec" min="1" max="60" step="1"> <span id="buffSecPost">秒沒有祈禱就提醒</span></label>
     </div>
+    <div class="row" style="margin-top:12px" data-for="priest">
+      <label class="chk"><input type="checkbox" id="castOn"> 計算祈禱施放次數</label>
+      <span>已施放 <b id="castCount" style="font-size:18px">0</b> 次</span>
+      <button class="b" id="btnCastMinus" style="padding:4px 10px;font-size:13px" title="誤判時手動修正">−1</button>
+      <button class="b" id="btnCastPlus" style="padding:4px 10px;font-size:13px" title="漏算時手動修正">+1</button>
+      <button class="b" id="btnCastReset" style="padding:4px 12px;font-size:13px">重置次數</button>
+    </div>
+    <div class="row" style="margin-top:8px" data-for="priest">
+      <label class="chk"><input type="checkbox" id="castWarnOn"> 施放到第 <input type="number" id="castWarnAt" min="1" max="9999" step="1"> 次時提醒我</label>
+      <span class="mut" id="castHint"></span>
+    </div>
     <div class="row" style="margin-top:8px">
       <span class="mut">提醒方式：</span>
       <label class="chk"><input type="checkbox" id="buffSound"> 提示音</label>
@@ -297,6 +308,8 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
     <ul class="tips">
       <li>會在遊戲畫面右上角的 Buff 欄尋找「神聖祈禱」圖示；圖示隨剩餘時間變暗也認得出來，位置、順序改變也沒關係。</li>
       <li data-for="priest">連續超過設定秒數都找不到，才會提醒一次；之後再偵測到祈禱，才會重新武裝。</li>
+      <li data-for="priest">施放次數：祈禱圖示「消失後重新出現」，或圖示「亮度突然變亮（重新施放、時間被補滿）」都算施放一次。次數會記在瀏覽器裡，重新整理也不會歸零；漏算或誤判可用 +1／−1 手動修正。</li>
+      <li data-for="priest">次數達到設定值時只提醒一次（提醒方式跟下面一樣）；按「重置次數」或把次數改回設定值以下，就會重新武裝。需要勾選「啟用祈禱偵測」才會計數。</li>
       <li data-for="fighter" hidden>打手版會讀祈禱圖示左下角「黃色」的剩餘秒數（只讀黃色數字，白色數字不讀）。剩餘秒數 ≤ 設定值時提醒一次，補完祈禱（數字變回去、或圖示重新出現）後自動重新武裝。</li>
       <li data-for="fighter" hidden>祈禱完全消失時，超過設定秒數也會再提醒一次（跟祭司版一樣）。</li>
       <li data-for="fighter" hidden>剩餘秒數要連續讀到吻合倒數的數字才會採用，避免誤讀造成誤報；可以從上面的「剩餘秒數擷取」確認讀到什麼。</li>
@@ -367,13 +380,16 @@ function loadScript(url) {
 const Settings = {
   d: { show_player_info: true, show_ten_min_exp: true, show_meso: true, show_level_estimate: true, show_active_time: true,
        show_percent: true, show_clock: true, font_size: 12, idle_timeout_min: 2.0, ui_scale: 100, manual_lv_box: null, manual_exp_box: null,
-       buff_watch_priest: true, buff_watch_fighter: true, buff_timeout_priest: 3, buff_timeout_fighter: 3, buff_sound: true, buff_notify: true, buff_alert: true, buff_discord: false, buff_webhook: '', buff_mode: 'priest', buff_warn_sec: 30, buff_split_v: 2 },
+       buff_watch_priest: true, buff_watch_fighter: true, buff_timeout_priest: 3, buff_timeout_fighter: 3, buff_sound: true, buff_notify: true, buff_alert: true, buff_discord: false, buff_webhook: '', buff_mode: 'priest', buff_warn_sec: 30, buff_split_v: 2,
+       cast_on: false, cast_warn_on: false, cast_warn_at: 98, cast_count: 0 },
   load() {
     try {
       const j = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null'); if (!j || typeof j !== 'object') return;
       if ('buff_watch' in j) { if (!('buff_watch_priest' in j)) j.buff_watch_priest = j.buff_watch; if (!('buff_watch_fighter' in j)) j.buff_watch_fighter = j.buff_watch; }   // 舊版共用一個開關 → 兩個版本各繼承一份
-      for (const k of ['show_player_info', 'show_ten_min_exp', 'show_meso', 'show_level_estimate', 'show_active_time', 'show_percent', 'show_clock', 'buff_watch_priest', 'buff_watch_fighter', 'buff_sound', 'buff_notify', 'buff_alert', 'buff_discord'])
+      for (const k of ['show_player_info', 'show_ten_min_exp', 'show_meso', 'show_level_estimate', 'show_active_time', 'show_percent', 'show_clock', 'buff_watch_priest', 'buff_watch_fighter', 'buff_sound', 'buff_notify', 'buff_alert', 'buff_discord', 'cast_on', 'cast_warn_on'])
         if (k in j) this.d[k] = !!j[k];
+      { const ca = Number(j.cast_warn_at); if (ca >= 1 && ca <= 9999) this.d.cast_warn_at = Math.round(ca);
+        const cc = Number(j.cast_count); if (cc >= 0 && cc <= 99999) this.d.cast_count = Math.round(cc); }
       const idle = Number(j.idle_timeout_min); if (idle >= 0 && idle <= 5) this.d.idle_timeout_min = idle;
       if (typeof j.buff_webhook === 'string') this.d.buff_webhook = j.buff_webhook.trim();
       for (const m of ['priest', 'fighter']) {   // 祭司版／打手版各自的「消失幾秒就提醒」（舊版共用 buff_timeout_sec）
@@ -1332,6 +1348,46 @@ const BuffWatch = {
   mm: { priest: { since: 0, sec: 0, alarmed: false }, fighter: { since: 0, sec: 0, alarmed: false }}, alerting: false,   // mm：兩個版本各自的「祈禱消失」計時，互不影響
   armedW: true, secA: null, secBad: null, secNone: 0, secInfo: null, dKey: null, dRes: null, cvS: null, cvB: null,   // 打手版：剩餘秒數提醒用
   state: 'idle', info: null, lastUi: 0, lastCrop: 0,
+  cMin: null, cPend: null, cLast: 0, cMissAt: 0, cAlarmed: false,   // 施放次數：亮度基準、待確認的「變亮」、上次計數時間、消失起點、是否已提醒
+
+  // 圖示整體平均亮度（略過圓角與左下角秒數）；重新施放時圖示會一下子變亮
+  iconBright(gr, f, m) {
+    const s = m.s, cx = Math.max(1, Math.round(2 * s)), dx0 = Math.round(21 * s), dy0 = Math.round(19 * s);
+    let sum = 0, n = 0;
+    for (let y = 0; y < m.sh; y++) { const row = (f.y + y) * gr.rw + f.x;
+      for (let x = cx; x < m.sw - cx; x++) { if (x < dx0 && y >= dy0) continue; sum += gr.g[row + x]; n++; } }
+    return n ? sum / n : 0;
+  },
+  castRearm() { this.cMin = null; this.cPend = null; this.cMissAt = 0; },
+  castAdd(d, fromAuto) {
+    const S = Settings.d; S.cast_count = Math.max(0, Math.min(99999, S.cast_count + d)); Settings.save();
+    if (d > 0 && S.cast_warn_on && !this.cAlarmed && S.cast_count >= S.cast_warn_at) { this.cAlarmed = true; this.fire('count', S.cast_count, 'priest'); }
+    if (S.cast_count < S.cast_warn_at) this.cAlarmed = false;
+    this.castUi();
+  },
+  castReset() { Settings.d.cast_count = 0; this.cAlarmed = false; Settings.save(); this.castUi(); },
+  castUi() {
+    const S = Settings.d, c = $('#castCount'); if (!c) return;
+    c.textContent = S.cast_count;
+    const hit = S.cast_warn_on && S.cast_count >= S.cast_warn_at;
+    c.style.color = hit ? 'var(--err)' : '';
+    const h = $('#castHint'); if (h) h.textContent = !S.cast_warn_on ? '（提醒已關閉，只計次數）' : hit ? '⚠ 已達提醒次數' : `還差 ${S.cast_warn_at - S.cast_count} 次`;
+  },
+  castStep(gr, f, m, now, wasMiss) {
+    const b = this.iconBright(gr, f, m);
+    if (wasMiss) {   // 消失 ≥1 秒後又出現 = 重新施放
+      const dur = this.cMissAt ? now - this.cMissAt : 0; this.cMissAt = 0;
+      this.cMin = b; this.cPend = null;
+      if (dur >= 1000) { this.cLast = now; this.castAdd(1, true); }
+      return;
+    }
+    if (this.cMin === null) { this.cMin = b; return; }
+    if (b < this.cMin) this.cMin = b;
+    if (this.cPend) {   // 變亮後要維持 1.2 秒才算（避免快消失時圖示閃爍被誤算）
+      if (b < this.cMin + 8) this.cPend = null;
+      else if (now - this.cPend >= 1200) { this.cPend = null; this.cMin = b; this.cLast = now; this.castAdd(1, true); }
+    } else if (b - this.cMin >= 15 && now - this.cLast > 10000) this.cPend = now;
+  },
 
   async init() {
     const img = new Image(); img.src = TPL_BUFF; await img.decode();
@@ -1404,7 +1460,7 @@ const BuffWatch = {
 
   // 重新武裝所有提醒（切換模式、重置時呼叫）
   rearmMode(m) { const o = this.mm[m]; o.since = 0; o.sec = 0; o.alarmed = false; if (m === 'fighter') { this.armedW = true; this.secA = null; this.secBad = null; this.secNone = 0; this.secInfo = null; this.dKey = null; this.dRes = null; } },
-  rearm() { this.rearmMode('priest'); this.rearmMode('fighter'); this.armedW = true; this.secA = null; this.secBad = null; this.secNone = 0; this.secInfo = null; this.dKey = null; this.dRes = null; },
+  rearm() { this.castRearm(); this.rearmMode('priest'); this.rearmMode('fighter'); this.armedW = true; this.secA = null; this.secBad = null; this.secNone = 0; this.secInfo = null; this.dKey = null; this.dRes = null; },
 
   reset() { this.last = null; this.miss = 0; this.lastStep = 0; this.state = 'idle'; this.info = null; this.rearm(); this.renderUi(performance.now(), true); },
 
@@ -1436,11 +1492,13 @@ const BuffWatch = {
       this.last = found; this.lastScale = found.scale; this.miss = 0; this.state = 'ok';
       for (const m of ['priest', 'fighter']) { const o = this.mm[m]; o.since = 0; o.sec = 0; o.alarmed = false; }
       this.info = { x: found.x + gr.x0, y: found.y, score: found.score, scale: found.scale };
+      if (S.buff_watch_priest && S.cast_on) { try { this.castStep(gr, found, fm, now, wasMiss); } catch (e) { console.warn('cast count', e); } }
       if (wasMiss) { this.armedW = true; this.secA = null; this.secBad = null; }   // 祈禱重新出現 = 補過了 → 剩餘秒數提醒重新武裝
       if (now - this.lastCrop > 500) { this.lastCrop = now; this.showCrop(gr, fm, found); }
       if (fOn) job = this.secStep(gr, found, fm, now); else { this.secInfo = null; this.secNone = 0; }
     } else {
       this.last = null; this.miss++; this.state = 'miss'; this.secInfo = null; this.secNone = 0;
+      if (!this.cMissAt) this.cMissAt = now; this.cPend = null;
       for (const m of ['priest', 'fighter']) {
         const o = this.mm[m];
         if (!S['buff_watch_' + m]) { o.since = 0; o.sec = 0; o.alarmed = false; continue; }   // 沒打勾的版本：不計時、不提醒
@@ -1533,11 +1591,12 @@ const BuffWatch = {
     c.getContext('2d').putImageData(img, 0, 0);
   },
 
-  fire(kind, v, mode) {   // kind: 'test' | 'warn'（剩餘秒數不多）| 'missing'（祈禱消失）
+  fire(kind, v, mode) {   // kind: 'test' | 'warn'（剩餘秒數不多）| 'missing'（祈禱消失）| 'count'（施放次數到了）
     const S = Settings.d, m = mode || S.buff_mode, fighter = m === 'fighter';
     let title, body;
     if (kind === 'test') { title = '【測試】神聖祈禱提醒'; body = '這是測試提醒，偵測功能正常。'; }
     else if (kind === 'warn') { title = `神聖祈禱剩 ${v} 秒！`; body = `快準備請祭司補祈禱（設定：剩 ${S.buff_warn_sec} 秒以內提醒）。`; }
+    else if (kind === 'count') { title = `祈禱已施放 ${v} 次！`; body = `已達設定的第 ${S.cast_warn_at} 次，準備好沒有祈禱的狀況（例如寵物掛機的次數上限）。`; }
     else if (fighter) { title = '神聖祈禱已經消失！'; body = `已經超過 ${S['buff_timeout_' + m]} 秒沒有偵測到「神聖祈禱」，快請祭司補祈禱！`; }
     else { title = '神聖祈禱沒有了！'; body = `已經超過 ${S['buff_timeout_' + m]} 秒沒有偵測到「神聖祈禱」，記得補祈禱！`; }
     if (S.buff_sound) beepAlarm();
@@ -1952,6 +2011,15 @@ async function boot() {
     }
     bind('#buffDiscord', 'buff_discord'); bind('#buffSound', 'buff_sound'); bind('#buffNotify', 'buff_notify'); bind('#buffAlert', 'buff_alert');
     { const w = $('#buffWebhook'); w.value = S.buff_webhook || ''; w.onchange = () => { S.buff_webhook = w.value.trim(); Settings.save(); const m = $('#buffDiscordMsg'); if (S.buff_webhook && !WEBHOOK_RE.test(S.buff_webhook)) { m.textContent = 'Webhook 網址格式不正確。'; m.style.color = 'var(--err)'; } else { m.textContent = S.buff_webhook ? 'Webhook 已儲存，按「測試提醒」試送。' : ''; m.style.color = 'var(--mut)'; } }; }
+    {   // 祈禱施放次數
+      bind('#castOn', 'cast_on'); bind('#castWarnOn', 'cast_warn_on'); bind('#castWarnAt', 'cast_warn_at', true, 1, 9999, 98);
+      const cu = () => { BuffWatch.cAlarmed = S.cast_count >= S.cast_warn_at && S.cast_warn_on; BuffWatch.castUi(); };   // 改設定時：已經超過的不要立刻補響
+      ['#castOn', '#castWarnOn', '#castWarnAt'].forEach(id => { const el = $(id), old = el.onchange; el.onchange = () => { old(); cu(); }; });
+      $('#btnCastPlus').onclick = () => BuffWatch.castAdd(1);
+      $('#btnCastMinus').onclick = () => BuffWatch.castAdd(-1);
+      $('#btnCastReset').onclick = () => { if (S.cast_count === 0 || confirm('確定要把祈禱施放次數歸零嗎？')) BuffWatch.castReset(); };
+      BuffWatch.cAlarmed = S.cast_warn_on && S.cast_count >= S.cast_warn_at; BuffWatch.castUi();
+    }
     $('#btnBuffTest').onclick = async () => { unlockAudio(); await askNotify(); BuffWatch.fire('test', undefined, Settings.d.buff_mode); };
     ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, unlockAudio, { passive: true }));
     BuffWatch.init().catch(e => console.warn('祈禱圖示樣板載入失敗', e));
