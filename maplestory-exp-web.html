@@ -289,11 +289,12 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
       <span class="mut" id="castHint"></span>
     </div>
     <div class="row" style="margin-top:8px">
-      <span class="mut">提醒方式：</span>
+      <span class="mut">提醒方式（<b id="notifyFor"></b>專用）：</span>
       <label class="chk"><input type="checkbox" id="buffSound"> 提示音</label>
       <label class="chk"><input type="checkbox" id="buffNotify"> 系統通知</label>
       <label class="chk"><input type="checkbox" id="buffAlert"> alert 視窗</label>
       <button class="b" id="btnBuffTest" style="padding:4px 12px;font-size:13px">測試提醒</button>
+      <button class="b" id="btnBdToggle" style="padding:4px 12px;font-size:13px">🐞 顯示 Debug</button>
     </div>
     <div class="row" style="margin-top:8px">
       <label class="chk"><input type="checkbox" id="buffDiscord"> Discord 通知</label>
@@ -305,6 +306,16 @@ label.chk{display:inline-flex;gap:6px;align-items:center}
     </div>
     <p class="mut" id="buffDiscordMsg" style="margin:4px 0 0">Discord 伺服器設定 → 整合 → Webhook 可建立網址；網址只存在這個瀏覽器，請勿分享給他人。</p>
     <p id="buffStatus">尚未開始：請先分享遊戲畫面</p>
+    <div id="bdPanel" hidden style="margin-top:10px;padding:10px;border:1px dashed var(--err);border-radius:10px;font-size:13px">
+      <b>🐞 祈禱偵測 Debug</b>　<span class="mut">遇到誤報後按「複製診斷報告」貼給 Claude</span>
+      <div id="bdLive" style="white-space:pre-wrap;font:12px/1.5 monospace;margin:6px 0"></div>
+      <canvas id="bdSpark" width="600" height="70" style="width:100%;max-width:600px;height:70px;display:block;border:1px solid var(--bd)"></canvas>
+      <div class="mut" style="font-size:12px">相似度走勢：綠＝正常、橘＝弱吻合（被低閾值撐住）、藍＝中斷中（原位置分數）；紅線＝主閾值、橘線＝原位置低閾值</div>
+      <div class="row" style="margin-top:6px"><label class="chk">主閾值 <input type="range" id="bdThr" min="50" max="95"> <b id="bdThrT"></b></label><label class="chk">原位置低閾值 <input type="range" id="bdTrk" min="40" max="95"> <b id="bdTrkT"></b></label></div>
+      <div class="row" style="margin-top:6px"><canvas id="bdFail" width="1" height="1" style="image-rendering:pixelated"></canvas><span class="mut">失敗點分佈：紅＝該點對的明暗關係不吻合、綠＝吻合（中斷時顯示當下最像的位置）</span></div>
+      <div class="row" style="margin-top:6px"><button class="b" id="bdCopy" style="padding:4px 12px;font-size:13px">複製診斷報告</button><button class="b" id="bdClear" style="padding:4px 12px;font-size:13px">清除紀錄</button></div>
+      <div id="bdLog" style="max-height:320px;overflow:auto;font:12px/1.5 monospace;margin-top:6px"></div>
+    </div>
     <div class="dbg">
       <span>比對到的圖示</span><span><canvas id="dbgBuff" width="31" height="32"></canvas></span>
       <span data-for="fighter" hidden>剩餘秒數擷取</span><span data-for="fighter" hidden><canvas id="dbgBuffSec" width="1" height="1"></canvas> <span id="dbgBuffSecT" class="mut"></span></span>
@@ -384,13 +395,14 @@ function loadScript(url) {
 const Settings = {
   d: { show_player_info: true, show_ten_min_exp: true, show_meso: true, show_level_estimate: true, show_active_time: true,
        show_percent: true, show_clock: true, font_size: 12, idle_timeout_min: 2.0, ui_scale: 100, manual_lv_box: null, manual_exp_box: null,
-       buff_watch_priest: true, buff_watch_fighter: true, buff_timeout_priest: 3, buff_timeout_fighter: 3, buff_sound: true, buff_notify: true, buff_alert: true, buff_discord: false, buff_webhook: '', buff_avatar: '', buff_mode: 'priest', buff_warn_sec: 30, buff_split_v: 2,
+       buff_watch_priest: true, buff_watch_fighter: true, buff_timeout_priest: 3, buff_timeout_fighter: 3, buff_sound_priest: true, buff_sound_fighter: true, buff_notify_priest: true, buff_notify_fighter: true, buff_alert_priest: true, buff_alert_fighter: true, buff_discord_priest: false, buff_discord_fighter: false, buff_webhook: '', buff_avatar: '', buff_mode: 'priest', buff_warn_sec: 30, buff_split_v: 2,
        cast_on: false, cast_warn_on: false, cast_warn_at: 98, cast_count: 0 },
   load() {
     try {
       const j = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null'); if (!j || typeof j !== 'object') return;
       if ('buff_watch' in j) { if (!('buff_watch_priest' in j)) j.buff_watch_priest = j.buff_watch; if (!('buff_watch_fighter' in j)) j.buff_watch_fighter = j.buff_watch; }   // 舊版共用一個開關 → 兩個版本各繼承一份
-      for (const k of ['show_player_info', 'show_ten_min_exp', 'show_meso', 'show_level_estimate', 'show_active_time', 'show_percent', 'show_clock', 'buff_watch_priest', 'buff_watch_fighter', 'buff_sound', 'buff_notify', 'buff_alert', 'buff_discord', 'cast_on', 'cast_warn_on'])
+      for (const k of ['sound', 'notify', 'alert', 'discord']) for (const m of ['priest', 'fighter']) if (!(`buff_${k}_${m}` in j) && ('buff_' + k) in j) j[`buff_${k}_${m}`] = j['buff_' + k];   // 舊版共用一份 → 兩版各繼承一份
+      for (const k of ['show_player_info', 'show_ten_min_exp', 'show_meso', 'show_level_estimate', 'show_active_time', 'show_percent', 'show_clock', 'buff_watch_priest', 'buff_watch_fighter', 'buff_sound_priest', 'buff_sound_fighter', 'buff_notify_priest', 'buff_notify_fighter', 'buff_alert_priest', 'buff_alert_fighter', 'buff_discord_priest', 'buff_discord_fighter', 'cast_on', 'cast_warn_on'])
         if (k in j) this.d[k] = !!j[k];
       { const ca = Number(j.cast_warn_at); if (ca >= 1 && ca <= 9999) this.d.cast_warn_at = Math.round(ca);
         const cc = Number(j.cast_count); if (cc >= 0 && cc <= 99999) this.d.cast_count = Math.round(cc); }
@@ -1309,7 +1321,7 @@ function frameSource() {
 //   變暗之後這個關係仍然成立。圖示位置、UI 縮放不同也能找到（每次掃描右上角整塊區域）。
 // ===================================================================================
 const TPL_BUFF = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB8AAAAgCAIAAABl4DQWAAAE50lEQVRIDa3BYXXlOBIG0K8gJBAsCFUQFAgSBBvCEwQZgg3BgmBBqIIgQ8iDULPHc16fZHrTuz/mXhpjAAgh4N8zxsCNxhghhFMH/ugNT7QV6fHEG/6XDwljDAAE4NQRecLPzAxtlbXpIyE9mBl/tDYrWcYYdOqIPOFnZoa2ytp0S7I0rQnxwcz4o7VZyUKnjsgTfmBm6KuU9vl5Xm2f0vz+/qE1IT6YGT9bm5UsdOqIPOG/MTP0VUrTLU1pvto+pflquyxNa0J8MDN+sDYrWUhV8QUz48XM0Fcp7fNTr7biNqXH+7toTYgPZsaLmeGLfqFkIVVFX/FLfOCXvkppuqUpPQBcbZ3SA8DVVlma1oT4wC99xS/x0S+ULKSq6EVKx01rwt/iA71I6f45rBVO1VrhVK0VTpXeg9aE+EBfgScAKR03rQnx0S+ULKSq6EVK1y3xXIkCblqjlK5b4rkCsL3gxnMFYHuRpWmNUjpu7sP2IkvTGhFrv1CykKqiFynd/dP2hefN9oXnjegdgPun7QvPGwDbF543ALYvPG9E7wDcP21feN5sX3jeiN61RsTaL5QspKroRUp3/wRg+wKA5832RZbm/gnA9oXnzfaF5832hecNANG7bonnzfYFAM8bAKJ3rRGx9gslC6kqepHSdUt44fmwPfN82J55PogIX7i77Znnw/bM82F7xossTWtErP1CyUKqil6kdHfHi+0ZAM+H7VmW5u54seuSEHRLPB+2ZwA8H3ghIq0RsfYLJQudOt7wRC9SursDsJbxIrm5O76z65IQ9Eh44XQAICKtEbEy89qsZKFTxxue6EVK1yMB4HTgZi1Lbu6O7+y6JAQ9EqcDN2sZgOSmNSJWZl6blSx06og8mRl6kdLdHTdrmdNBRO6O7+y6JAR3t5Y5HbgRkdaIWJkZwNqsZKFTR+QJgJmhFykdgB6J0wGAiNwd39l1SQjuDsBaltwAaI2IlZlxW5uVLHTqiDzhZmboBYCUDsDdARCRu+Nm1wVAQnB3AEQEQGvEf8TKzHhZm5UsdOqIPOFmZuhFStcjAeB0WMucDiLSMXCTENzdWuZ0WMsAJDetEbEyM17WZiULnToiTwDMDL1I6e6Om7UsueFFx5AQ8KJH4nTgRkRaI2JlZtzWZiULnToiTwDMDFZk6Xok3CQ3d8d3dl24SQh6JNwkN90iuDIzbmuzkoVOHZEnM4MVWbq7A7Ce5aO5u12XhODuRISbjiEh6BgAJAQ9E8cDABHpFsGVmQGszUoWOnVEnswMVmTp7m49y0dzd7suABICAHcnIncnIgA6Bm4Sgp6J40FEukVwZWYAa7OShU4dkSczgxVZup6J40FE7k5EeNExJAR3JyK86BgSgrtbz/LRdIvgyswA1mYlC5063vCEFVk6vnB3fGHXJSHoGPhOQsAXukVwZea1WclCp443PGEF38nS8X/QLeIfuDLz2qxkoVPHG574zdPKx9KHPoKspyq++BAZ+giy6hbBFb9h5rVZyUKnjsgTvjOzp5WPpePm7gDsunCTEHA7t/jGlZnxm7VZyUIATh2RJ3xhZk8ruH0s3d3tuiQEd7frkhDOLeL2xpWZ8d3arGQZY9AYI4RQD8UXccLfnlY+lu7udl0SgrvbdUkI5xbfuOLWL/xDyTLGAEBjDAAhBPx7xhi4/QUWTDjYKtjlWwAAAABJRU5ErkJggg==';
-const BUFF_THR = 0.85, BUFF_MARGIN = 6, BUFF_FALLBACK_SCALES = [0.75, 1.25, 1.5, 2, 1.75, 2.5, 3, 0.5];
+let BUFF_THR = 0.80, BUFF_MARGIN = 6, BUFF_FALLBACK_SCALES = [0.75, 1.25, 1.5, 2, 1.75, 2.5, 3, 0.5];
 let audioCtx = null;
 function unlockAudio() {   // 瀏覽器規定要先有使用者操作才能發聲，所以任何點擊／按鍵都先把音訊解鎖
   try {
@@ -1328,7 +1340,7 @@ function beepAlarm() {     // 叮咚 ×3；用音訊時間軸預排，之後就�
   }
 }
 async function askNotify() {
-  if (Settings.d.buff_notify && 'Notification' in window && Notification.permission === 'default') {
+  if ((Settings.d.buff_notify_priest || Settings.d.buff_notify_fighter) && 'Notification' in window && Notification.permission === 'default') {
     try { await Notification.requestPermission(); } catch (e) { /* ignore */ }
   }
 }
@@ -1358,6 +1370,108 @@ async function sendDiscord(title, body) {
     else say(`Discord 回應錯誤 ${r.status}${r.status === 404 ? '（Webhook 已被刪除或網址錯誤）' : r.status === 429 ? '（送太頻繁）' : ''}`, 'var(--err)');
   } catch (e) { say('Discord 送出失敗：' + e.message, 'var(--err)'); }
 }
+
+const BuffDbg = {   // ===== Debug：記錄每次「偵測不到」的原因 =====
+  trk: 0.70, L: [], H: [], lastPos: null, missT0: 0, missBest: 0, missInfo: null, lastDiagT: 0, failT: 0, weakN: 0, weakT: 0, foundN: 0, dirty: true, _n: {},
+  push(kind, msg, img) { this.L.unshift({ t: new Date().toLocaleTimeString('zh-TW', { hour12: false }), kind, msg, img }); if (this.L.length > 300) this.L.pop(); this.dirty = true; },
+  note(k, msg) { const n = performance.now(); if (n - (this._n[k] || 0) > 3000) { this._n[k] = n; this.push(k, msg); } },
+  snap(gr) {
+    const c = document.createElement('canvas'); c.width = gr.rw; c.height = gr.rh; c.getContext('2d').putImageData(new ImageData(gr.d, gr.rw, gr.rh), 0, 0);
+    const o = document.createElement('canvas'), k = Math.min(1, 560 / gr.rw); o.width = Math.round(gr.rw * k); o.height = Math.round(gr.rh * k);
+    o.getContext('2d').drawImage(c, 0, 0, o.width, o.height); return o.toDataURL('image/jpeg', 0.6);
+  },
+  scoreAt(g, rw, m, x, y, fails) {
+    const M = BUFF_MARGIN; let ok = 0;
+    for (let i = 0; i < m.n; i++) { const d = g[(y + m.y1[i]) * rw + x + m.x1[i]] - g[(y + m.y2[i]) * rw + x + m.x2[i]]; if (m.sg[i] > 0 ? d >= M : d <= -M) ok++; else if (fails) fails.push(i); }
+    return ok / m.n;
+  },
+  nearBest(gr) {
+    const p = this.lastPos; if (!p) return null; const m = BuffWatch.model(p.scale); if (!m || m.sw > gr.rw || m.sh > gr.rh) return null;
+    let b = { s: -1, x: p.x, y: p.y, m };
+    for (let y = Math.max(0, p.y - 4); y <= Math.min(gr.rh - m.sh, p.y + 4); y++) for (let x = Math.max(0, p.x - 4); x <= Math.min(gr.rw - m.sw, p.x + 4); x++) { const s = this.scoreAt(gr.g, gr.rw, m, x, y); if (s > b.s) b = { s, x, y, m }; }
+    return b;
+  },
+  scan(gr, m) {   // 不提前淘汰：每 2px 粗掃全區，再在最佳點 ±2px 細修
+    let b = { s: -1, x: 0, y: 0, m };
+    for (let y = 0; y <= gr.rh - m.sh; y += 2) for (let x = 0; x <= gr.rw - m.sw; x += 2) { const s = this.scoreAt(gr.g, gr.rw, m, x, y); if (s > b.s) b = { s, x, y, m }; }
+    for (let y = Math.max(0, b.y - 2); y <= Math.min(gr.rh - m.sh, b.y + 2); y++) for (let x = Math.max(0, b.x - 2); x <= Math.min(gr.rw - m.sw, b.x + 2); x++) { const s = this.scoreAt(gr.g, gr.rw, m, x, y); if (s > b.s) b = { s, x, y, m }; }
+    return b;
+  },
+  bands(gr, m, x, y) {   // 圖示上／中／下三段的亮度 ÷ 樣板亮度（變暗是由下往上）
+    const T = BuffWatch, r = [];
+    for (let b = 0; b < 3; b++) {
+      let a = 0, n = 0, t = 0, tn = 0;
+      for (let yy = Math.floor(b * m.sh / 3); yy < Math.floor((b + 1) * m.sh / 3); yy++) for (let xx = 0; xx < m.sw; xx++) { a += gr.g[(y + yy) * gr.rw + x + xx]; n++; }
+      for (let yy = Math.floor(b * T.H / 3); yy < Math.floor((b + 1) * T.H / 3); yy++) for (let xx = 0; xx < T.W; xx++) { t += T.gray[yy * T.W + xx]; tn++; }
+      r.push(((a / n) / ((t / tn) || 1)).toFixed(2));
+    }
+    return r;
+  },
+  drawFail(gr, m, x, y) {
+    const c = $('#bdFail'); if (!c || x + m.sw > gr.rw || y + m.sh > gr.rh) return; const k = 5, cx = c.getContext('2d');
+    c.width = m.sw * k; c.height = m.sh * k; const t = document.createElement('canvas'); t.width = m.sw; t.height = m.sh;
+    const id = new ImageData(m.sw, m.sh); for (let yy = 0; yy < m.sh; yy++) { const so = ((y + yy) * gr.rw + x) * 4; id.data.set(gr.d.subarray(so, so + m.sw * 4), yy * m.sw * 4); }
+    t.getContext('2d').putImageData(id, 0, 0); cx.imageSmoothingEnabled = false; cx.drawImage(t, 0, 0, c.width, c.height);
+    const fl = []; this.scoreAt(gr.g, gr.rw, m, x, y, fl); const bad = new Set(fl);
+    for (let i = 0; i < m.n; i++) { cx.fillStyle = bad.has(i) ? 'rgba(255,0,0,.95)' : 'rgba(0,255,0,.35)'; cx.fillRect(m.x1[i] * k + 1, m.y1[i] * k + 1, 3, 3); }
+  },
+  diag(gr) {
+    const sc = this.lastPos ? this.lastPos.scale : (BuffWatch.lastScale || 1), m = BuffWatch.model(sc); if (!m || m.sw > gr.rw || m.sh > gr.rh) return null;
+    const near = this.nearBest(gr), scan = this.scan(gr, m), top = near && near.s >= scan.s ? near : scan;
+    let sum = 0, c = 0; for (let i = 0; i < gr.g.length; i += 37) { sum += gr.g[i]; c++; } const mean = sum / c, bands = this.bands(gr, m, top.x, top.y);
+    let why;
+    if (mean < 12) why = '👉 掃描區幾乎全黑：像是轉場／讀圖／沒擷取到遊戲畫面（影格問題，不是圖示比對）';
+    else if (scan.s >= BUFF_THR) why = `👉 全區掃描其實找得到（相似度 ${scan.s.toFixed(2)}，位置 ${scan.x},${scan.y}）：是即時搜尋的縮放／位置邏輯漏掉`;
+    else if (top.s >= 0.5) why = `👉 圖示還在原處但相似度只剩 ${top.s.toFixed(2)}（< ${BUFF_THR}）：變暗／閃爍／被半透明物蓋住（上中下亮度比 ${bands.join('/')}，1.00＝跟樣板一樣亮）`;
+    else why = `👉 全區最像的也只有 ${top.s.toFixed(2)}：圖示真的不在畫面（被提示框／視窗遮住、Buff 欄被隱藏或畫面切換）`;
+    this.drawFail(gr, top.m, top.x, top.y);
+    return this.missInfo = { near, scan, mean, bands, why };
+  },
+  onFound(f, gr, m, now, wasMiss) {
+    this.foundN++; const prev = this.lastPos; this.lastPos = { x: f.x, y: f.y, scale: f.scale };
+    this.H.push({ s: f.score, w: f.weak ? 1 : 0 }); if (this.H.length > 600) this.H.shift();
+    if (wasMiss && this.missT0) { this.push('back', `✅ 圖示回來了｜中斷 ${((now - this.missT0) / 1000).toFixed(1)} 秒｜中斷期間最高相似度 ${this.missBest.toFixed(2)}｜回來時 ${f.score.toFixed(2)}`); this.missT0 = 0; }
+    if (f.weak) { this.weakN++; if (now - this.weakT > 5000) this.push('weak', `⚠ 弱吻合 ${f.score.toFixed(2)} < 主閾值 ${BUFF_THR}，靠「原位置＋低閾值 ${this.trk}」撐住（沒有這機制就會算漏判）`); this.weakT = now; }
+    if (prev && prev.scale !== f.scale) this.push('scale', `縮放改變 ${prev.scale} → ${f.scale}`);
+    else if (prev && Math.hypot(prev.x - f.x, prev.y - f.y) > 6) this.push('move', `圖示位置移動 ${prev.x},${prev.y} → ${f.x},${f.y}`);
+    if (now - this.failT > 1000) { this.failT = now; this.drawFail(gr, m, f.x, f.y); }
+  },
+  onMiss(gr, cand, now) {
+    if (!this.missT0) { this.missT0 = now; this.missBest = 0; this.missInfo = null; this.lastDiagT = 0; const p = this.lastPos;
+      this.push('miss', `❌ 偵測不到祈禱圖示（開始計時）｜上次位置 ${p ? p.x + ',' + p.y + ' 縮放' + p.scale : '無'}｜嘗試縮放 ${cand.join(',')}`, this.snap(gr)); }
+    const nb = this.nearBest(gr); if (nb) this.missBest = Math.max(this.missBest, nb.s);
+    this.H.push({ s: nb ? nb.s : 0, m: 1 }); if (this.H.length > 600) this.H.shift();
+    if (now - this.lastDiagT > 1000) { this.lastDiagT = now; const i = this.diag(gr); if (i) this.missBest = Math.max(this.missBest, i.scan.s); }
+  },
+  onAlarm(gr, m, sec) {
+    const i = this.diag(gr) || this.missInfo;
+    this.push('alarm', `🚨 ${m === 'fighter' ? '打手版' : '祭司版'}「祈禱消失」告警（連續 ${sec.toFixed(1)} 秒沒偵測到）｜${i ? i.why : '（無診斷資料）'}`, this.snap(gr));
+  },
+  report() {
+    const S = Settings.d, p = this.lastPos, fs = frameSource() || {};
+    return ['【祈禱偵測診斷報告】' + new Date().toLocaleString(), `擷取 ${fs.w}×${fs.h}｜extractor.scale ${extractor && extractor.scale}｜上次圖示 ${p ? p.x + ',' + p.y + ' 縮放' + p.scale : '無'}`,
+      `閾值：主 ${BUFF_THR}｜原位置 ${this.trk}｜消失秒數 祭司 ${S.buff_timeout_priest}／打手 ${S.buff_timeout_fighter}`, `偵測：祭司${S.buff_watch_priest} 打手${S.buff_watch_fighter}｜提示音 祭司${S.buff_sound_priest} 打手${S.buff_sound_fighter}`,
+      `累計吻合 ${this.foundN}｜弱吻合 ${this.weakN}`, '--- 紀錄（新→舊）---', ...this.L.slice(0, 80).map(e => `${e.t} [${e.kind}] ${e.msg}`)].join('\n');
+  },
+  render() {
+    const e = $('#bdLive'); if (!e || $('#bdPanel').hidden) return; const h = this.H[this.H.length - 1], p = this.lastPos, i = this.missInfo;
+    e.textContent = [`最近相似度 ${h ? h.s.toFixed(2) : '—'}｜主閾值 ${BUFF_THR}｜原位置低閾值 ${this.trk}｜上次位置 ${p ? p.x + ',' + p.y + ' ×' + p.scale : '—'}｜吻合 ${this.foundN}／弱吻合 ${this.weakN}`,
+      this.missT0 ? `❌ 中斷中 ${((performance.now() - this.missT0) / 1000).toFixed(1)} 秒｜最高相似度 ${this.missBest.toFixed(2)}${i ? '\n' + i.why : ''}` : ''].join('\n').trim();
+    const c = $('#bdSpark'), x = c.getContext('2d'), W = c.width, Hh = c.height, y = s => Hh - 4 - s * (Hh - 8), dx = W / 600; x.clearRect(0, 0, W, Hh);
+    [[BUFF_THR, '#d64545'], [this.trk, '#d9822b']].forEach(([v, col]) => { x.strokeStyle = col; x.beginPath(); x.moveTo(0, y(v)); x.lineTo(W, y(v)); x.stroke(); });
+    const n = this.H.length; this.H.forEach((q, k) => { x.fillStyle = q.m ? '#4a7bd6' : q.w ? '#d9822b' : '#1f9d55'; x.fillRect((600 - n + k) * dx, y(q.s) - 1, Math.max(1.5, dx), 3); });
+    if (this.dirty) { this.dirty = false; $('#bdLog').innerHTML = this.L.map(q => `<div style="margin:3px 0;border-bottom:1px solid var(--bd)"><span class="mut">${q.t}</span> <b>[${q.kind}]</b> ${q.msg.replace(/&/g, '&amp;').replace(/</g, '&lt;')}${q.img ? `<br><img src="${q.img}" style="max-width:100%;border:1px solid var(--bd)">` : ''}</div>`).join(''); }
+  },
+  init() {
+    $('#btnBdToggle').onclick = () => { const p = $('#bdPanel'); p.hidden = !p.hidden; $('#btnBdToggle').textContent = p.hidden ? '🐞 顯示 Debug' : '🐞 隱藏 Debug'; this.dirty = true; this.render(); };
+    const a = $('#bdThr'), b = $('#bdTrk'), upd = () => { $('#bdThrT').textContent = BUFF_THR.toFixed(2); $('#bdTrkT').textContent = this.trk.toFixed(2); };
+    a.value = Math.round(BUFF_THR * 100); b.value = Math.round(this.trk * 100); upd();
+    a.oninput = () => { BUFF_THR = a.value / 100; upd(); }; b.oninput = () => { this.trk = b.value / 100; upd(); };
+    $('#bdClear').onclick = () => { this.L = []; this.H = []; this.weakN = 0; this.foundN = 0; this.dirty = true; };
+    $('#bdCopy').onclick = async () => { const t = this.report(); try { await navigator.clipboard.writeText(t); $('#bdCopy').textContent = '已複製 ✔'; setTimeout(() => { $('#bdCopy').textContent = '複製診斷報告'; }, 1500); } catch (e) { prompt('請自行複製：', t); } };
+    this.push('init', `Debug 已啟用｜主閾值 ${BUFF_THR}、原位置低閾值 ${this.trk}`);
+  },
+};
 
 const BuffWatch = {
   W: 31, H: 32, gray: null, ready: false, models: new Map(),
@@ -1468,7 +1582,7 @@ const BuffWatch = {
     const Q = Math.min(24, n), M = BUFF_MARGIN; let best = null, bestOk = -1;
     for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) {
       const base = y * rw + x; let ok = 0, bad = 0, i = 0;
-      for (; i < Q; i++) { const d = g[base + o1[i]] - g[base + o2[i]]; if (sg[i] > 0 ? d >= M : d <= -M) ok++; else if (++bad > 6) break; }
+      for (; i < Q; i++) { const d = g[base + o1[i]] - g[base + o2[i]]; if (sg[i] > 0 ? d >= M : d <= -M) ok++; else if (++bad > (win ? 12 : 6)) break; }
       if (i < Q) continue;
       for (; i < n; i++) { const d = g[base + o1[i]] - g[base + o2[i]]; if (sg[i] > 0 ? d >= M : d <= -M) ok++; }
       if (ok > bestOk) { bestOk = ok; best = { x, y, score: ok / n }; }
@@ -1489,7 +1603,7 @@ const BuffWatch = {
     const S = Settings.d, now = performance.now();
     const pOn = S.buff_watch_priest, fOn = S.buff_watch_fighter;   // 兩個版本各自獨立：只有「打勾」的版本才會偵測、才會提醒（含 Discord）
     if (!pOn && !fOn) { this.rearm(); this.state = 'off'; this.lastStep = now; this.renderUi(now); return; }
-    if (this.lastStep && now - this.lastStep > 2000) { this.mm.priest.since = this.mm.fighter.since = 0; this.secA = null; this.secBad = null; }   // 中間停過（暫停統計、讀不到介面、被 alert 卡住）→ 重新計時
+    if (this.lastStep && now - this.lastStep > 2000) { BuffDbg.push('gap', `偵測中斷 ${((now - this.lastStep) / 1000).toFixed(1)} 秒（暫停統計／讀不到介面／頁面被卡住），計時已重置`); this.mm.priest.since = this.mm.fighter.since = 0; this.secA = null; this.secBad = null; }   // 中間停過（暫停統計、讀不到介面、被 alert 卡住）→ 重新計時
     this.lastStep = now;
     const s0 = extractor && extractor.available ? Math.round(extractor.scale * 100) / 100 : 1, cand = [];
     const add = s => { s = Math.round(s * 100) / 100; if (s >= 0.3 && s <= 4 && !cand.includes(s)) cand.push(s); };
@@ -1502,27 +1616,29 @@ const BuffWatch = {
       const m = this.model(s); if (!m || m.sw > gr.rw || m.sh > gr.rh) continue;
       let r = null;
       if (this.last && this.last.scale === s) r = this.find(gr.g, gr.rw, gr.rh, m, { x: this.last.x, y: this.last.y, r: 4 });
-      if (!r || r.score < BUFF_THR) r = this.find(gr.g, gr.rw, gr.rh, m, null);
-      if (r && r.score >= BUFF_THR) { found = { x: r.x, y: r.y, score: r.score, scale: s }; fm = m; break; }
+      let weak = false; if (r && r.score < BUFF_THR && r.score >= BuffDbg.trk) weak = true; else if (!r || r.score < BUFF_THR) r = this.find(gr.g, gr.rw, gr.rh, m, null);   // 原位置還在、只是變暗／閃爍 → 用較低閾值撐住
+      if (r && (r.score >= BUFF_THR || weak)) { found = { x: r.x, y: r.y, score: r.score, scale: s, weak: weak && r.score < BUFF_THR }; fm = m; break; }
     }
     if (found) {
       const wasMiss = this.state === 'miss';
       this.last = found; this.lastScale = found.scale; this.miss = 0; this.state = 'ok';
       for (const m of ['priest', 'fighter']) { const o = this.mm[m]; o.since = 0; o.sec = 0; o.alarmed = false; }
       this.info = { x: found.x + gr.x0, y: found.y, score: found.score, scale: found.scale };
+      try { BuffDbg.onFound(found, gr, fm, now, wasMiss); } catch (e) { console.warn(e); }
       if (S.buff_watch_priest && S.cast_on) { try { this.castStep(gr, found, fm, now, wasMiss); } catch (e) { console.warn('cast count', e); } }
       if (wasMiss) { this.armedW = true; this.secA = null; this.secBad = null; }   // 祈禱重新出現 = 補過了 → 剩餘秒數提醒重新武裝
       if (now - this.lastCrop > 500) { this.lastCrop = now; this.showCrop(gr, fm, found); }
       if (fOn) job = this.secStep(gr, found, fm, now); else { this.secInfo = null; this.secNone = 0; }
     } else {
       this.last = null; this.miss++; this.state = 'miss'; this.secInfo = null; this.secNone = 0;
+      try { BuffDbg.onMiss(gr, cand, now); } catch (e) { console.warn(e); }
       if (!this.cMissAt) this.cMissAt = now; this.cPend = null;
       for (const m of ['priest', 'fighter']) {
         const o = this.mm[m];
         if (!S['buff_watch_' + m]) { o.since = 0; o.sec = 0; o.alarmed = false; continue; }   // 沒打勾的版本：不計時、不提醒
         if (!o.since) o.since = now;
         o.sec = (now - o.since) / 1000;
-        if (!o.alarmed && o.sec >= S['buff_timeout_' + m]) { o.alarmed = true; this.fire('missing', undefined, m); }
+        if (!o.alarmed && o.sec >= S['buff_timeout_' + m]) { o.alarmed = true; this.fire('missing', undefined, m); try { BuffDbg.onAlarm(gr, m, o.sec); } catch (e) { console.warn(e); } }
       }
     }
     this.renderUi(now);
@@ -1617,12 +1733,14 @@ const BuffWatch = {
     else if (kind === 'count') { title = `祈禱已施放 ${v} 次！`; body = `已達設定的第 ${S.cast_warn_at} 次，準備好沒有祈禱的狀況（例如寵物掛機的次數上限）。`; }
     else if (fighter) { title = '神聖祈禱已經消失！'; body = `已經超過 ${S['buff_timeout_' + m]} 秒沒有偵測到「神聖祈禱」，快請祭司補祈禱！`; }
     else { title = '神聖祈禱沒有了！'; body = `已經超過 ${S['buff_timeout_' + m]} 秒沒有偵測到「神聖祈禱」，記得補祈禱！`; }
-    if (S.buff_sound) beepAlarm();
-    if (S.buff_notify && 'Notification' in window && Notification.permission === 'granted') {
+    const on = k => S['buff_' + k + '_' + m];
+    try { BuffDbg.push('fire', `${kind}｜${fighter ? '打手版' : '祭司版'}｜提示音${on('sound') ? '✔' : '✘'} 通知${on('notify') ? '✔' : '✘'} alert${on('alert') ? '✔' : '✘'} Discord${on('discord') ? '✔' : '✘'}｜偵測開關：祭司${S.buff_watch_priest ? '開' : '關'} 打手${S.buff_watch_fighter ? '開' : '關'}`); } catch (e) { }
+    if (on('sound')) beepAlarm();
+    if (on('notify') && 'Notification' in window && Notification.permission === 'granted') {
       try { const n = new Notification(title, { body, tag: 'mxt-holy-symbol', requireInteraction: true }); n.onclick = () => { window.focus(); n.close(); }; } catch (e) { /* ignore */ }
     }
-    if (S.buff_discord) sendDiscord(title, body);
-    if (S.buff_alert && !this.alerting) {
+    if (on('discord')) sendDiscord(title, body);
+    if (on('alert') && !this.alerting) {
       this.alerting = true;
       setTimeout(() => { try { alert(title + '\n' + body); } finally { this.alerting = false; } }, 150);   // 先讓聲音與通知出去，再跳 alert（alert 會卡住頁面）
     }
@@ -1659,8 +1777,9 @@ const BuffWatch = {
       }
     }
     else { t = `❌ 沒有偵測到神聖祈禱，已持續 ${mo.sec.toFixed(1)} 秒` + (mo.alarmed ? '（已提醒）' : ''); c = 'var(--err)'; }
-    if (S.buff_notify && 'Notification' in window && Notification.permission === 'denied') t += '｜⚠ 瀏覽器已封鎖通知，請到網址列左邊的網站設定開啟';
+    if (S['buff_notify_' + S.buff_mode] && 'Notification' in window && Notification.permission === 'denied') t += '｜⚠ 瀏覽器已封鎖通知，請到網址列左邊的網站設定開啟';
     el.textContent = t; el.style.color = c;
+    try { BuffDbg.render(); } catch (e) { console.warn(e); }
     const dt = $('#dbgBuffSecT');
     if (dt) { const si = fighter && S.buff_watch_fighter && this.state === 'ok' ? this.secInfo : null; dt.textContent = !si ? '' : si.none ? '沒有黃色數字' : `“${si.text}”  信心 ${si.conf.toFixed(2)}${si.bad ? '（不採用）' : si.pending ? '（確認中）' : ''}`; }
   },
@@ -1676,7 +1795,7 @@ async function tick() {
     const src = frameSource(); if (!src || !src.w) return;
     if (!extractor) { tracker.setStatus(recognizer ? '準備中...' : '辨識模型載入中...'); return; }
     await extractor.ensureDetected(src);
-    if (!extractor.available) { tracker.setStatus('找不到遊戲介面，偵測中...'); updateDbg(src); return; }
+    if (!extractor.available) { try { BuffDbg.note('nogame', '⚠ 讀不到遊戲介面（LV／EXP）→ 祈禱偵測暫停、不計時'); } catch (e) { } tracker.setStatus('找不到遊戲介面，偵測中...'); updateDbg(src); return; }
     const src2 = frameSource() || src;
     let buffP = null;
     try { buffP = BuffWatch.step(src2); } catch (e) { console.warn('buff watch', e); }   // 神聖祈禱偵測（出錯也不影響經驗讀取）；打手版會回傳一個等 OCR 的 Promise
@@ -2011,6 +2130,7 @@ async function boot() {
         $('#buffSecPre').textContent = f ? '祈禱完全消失超過' : '超過';
         $('#buffSecPost').textContent = f ? '秒也提醒' : '秒沒有祈禱就提醒';
         $('#buffModeDesc').textContent = DESC[S.buff_mode];
+        if (window.__syncNotify) window.__syncNotify();
       };
       applyMode();
       $('#buffOn').onchange = e => {
@@ -2027,7 +2147,16 @@ async function boot() {
         S.buff_mode = b.dataset.mode; Settings.save(); applyMode(); BuffWatch.renderUi(performance.now(), true);   // 只是切換要看／設定哪個版本，不影響另一個版本的偵測
       });
     }
-    bind('#buffDiscord', 'buff_discord'); bind('#buffSound', 'buff_sound'); bind('#buffNotify', 'buff_notify'); bind('#buffAlert', 'buff_alert');
+    {   // 提示音／系統通知／alert／Discord：依目前選的版本各存各的
+      const NK = { buffSound: 'sound', buffNotify: 'notify', buffAlert: 'alert', buffDiscord: 'discord' };
+      window.__syncNotify = () => { for (const [id, k] of Object.entries(NK)) $('#' + id).checked = !!S['buff_' + k + '_' + S.buff_mode]; $('#notifyFor').textContent = S.buff_mode === 'fighter' ? '打手版' : '祭司版'; };
+      for (const [id, k] of Object.entries(NK)) $('#' + id).onchange = e => {
+        S['buff_' + k + '_' + S.buff_mode] = e.target.checked; Settings.save();
+        if (e.target.checked && k === 'notify') askNotify(); if (e.target.checked && k === 'sound') unlockAudio();
+        BuffWatch.renderUi(performance.now(), true);
+      };
+      window.__syncNotify();
+    }
     { const w = $('#buffWebhook'); w.value = S.buff_webhook || ''; w.onchange = () => { S.buff_webhook = w.value.trim(); Settings.save(); const m = $('#buffDiscordMsg'); if (S.buff_webhook && !WEBHOOK_RE.test(S.buff_webhook)) { m.textContent = 'Webhook 網址格式不正確。'; m.style.color = 'var(--err)'; } else { m.textContent = S.buff_webhook ? 'Webhook 已儲存，按「測試提醒」試送。' : ''; m.style.color = 'var(--mut)'; } }; }
     {   // 祈禱施放次數
       bind('#castOn', 'cast_on'); bind('#castWarnOn', 'cast_warn_on'); bind('#castWarnAt', 'cast_warn_at', true, 1, 9999, 98);
@@ -2041,7 +2170,7 @@ async function boot() {
     { const a = $('#buffAvatar'); a.value = S.buff_avatar || ''; a.onchange = () => { S.buff_avatar = a.value.trim(); Settings.save(); const m = $('#buffDiscordMsg'); if (S.buff_avatar && !/^https:\/\/\S+$/i.test(S.buff_avatar)) { m.textContent = '頭像網址必須是 https:// 開頭的公開圖片網址，目前不會套用。'; m.style.color = 'var(--err)'; } else { m.textContent = S.buff_avatar ? '頭像網址已儲存，按「測試提醒」試送。' : ''; m.style.color = 'var(--mut)'; } }; }
     $('#btnBuffTest').onclick = async () => { unlockAudio(); await askNotify(); BuffWatch.fire('test', undefined, Settings.d.buff_mode); };
     ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, unlockAudio, { passive: true }));
-    BuffWatch.init().catch(e => console.warn('祈禱圖示樣板載入失敗', e));
+    BuffWatch.init().catch(e => console.warn('祈禱圖示樣板載入失敗', e)); BuffDbg.init();
     BuffWatch.renderUi(performance.now(), true);
     setInterval(() => BuffWatch.renderUi(performance.now()), 1000);
   }
