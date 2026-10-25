@@ -634,7 +634,7 @@ function scanMapName(d, rw, rh, sc, lvl = 0) {
 // MAP_SEED 是預設名單；信心 ≥0.95 的辨識結果會自動記進 localStorage（不含種子），之後就能用來修正低信心的結果。
 // 想手動加地圖：在瀏覽器 Console 輸入 MapKnown.add('地圖名稱')
 const MAP_SEED = ['遺跡之墓Ⅱ', '遺跡之墓Ⅲ', '遺跡之墓Ⅳ', '冰雪峽谷Ⅰ', '冰雪峽谷Ⅱ', '冰雪峽谷Ⅲ', '冰雪峽谷Ⅳ'];
-const MAP_CONFUSE = ['遺透道逍追', '跡助蹄踪蹤', '墓基暮幕慕募', '雪盾雷雲', '峽咳狹陝俠', '冰水永'];    // 字形相近、OCR 常互相認錯的字（替換成本 0.3，其餘 1）
+const MAP_CONFUSE = ['遺透道逍追', '跡助蹄踪蹤', '墓基暮幕慕募', '雪盾雷雲百', '峽咳狹陝俠埃', '冰水永'];    // 字形相近、OCR 常互相認錯的字（替換成本 0.3，其餘 1）
 const MapKnown = {
   KEY: 'mapKnownNames', list: [],
   load() { let a = []; try { a = JSON.parse(localStorage.getItem(this.KEY) || '[]'); } catch (e) {} this.list = [...new Set([...MAP_SEED, ...(Array.isArray(a) ? a : [])])]; },
@@ -883,7 +883,7 @@ class Extractor {
     const lenOk = name.length >= 2 && name.length <= 20;
     if (lenOk && r.conf >= 0.8) {
       const sn = snapMap(name);
-      res = { name: (sn && sn.dist <= 1) ? sn.name : name, conf: r.conf };   // 高信心：只在差一點點時才統一成名單寫法（例如 II ↔ Ⅱ）
+      res = { name: (sn && sn.dist <= (r.conf < 0.9 ? 1.5 : 1)) ? sn.name : name, conf: r.conf };   // 高信心：只在差一點點時才統一成名單寫法（例如 II ↔ Ⅱ）
       if (r.conf >= 0.95) MapKnown.add(res.name);
     } else if (name.length >= 1 && r.conf >= 0.35) {
       const sn = snapMap(name);                                              // 低信心：只有對得上名單才採用，對不上就略過
