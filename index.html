@@ -1009,7 +1009,7 @@ class Tracker {
     ExpHistory.clearLive();
     // 楓幣：mesoBase = 最近一次採用的讀數；mesoTotal = 開始追蹤後累積「增加」的楓幣（花費不扣除）
     this.rebase = false; this.mesoRebase = false;   // 暫停後恢復：下一筆讀數只當基準，不把暫停期間的經驗/楓幣算進去
-    this.mesoBase = null; this.mesoCur = 0; this.mesoPend = null; this.mesoPendN = 0; this.mesoPendT = 0; this.mesoTotal = 0; this.mesoSec = 0;
+    this.mesoBase = null; this.mesoCur = 0; this.mesoPend = null; this.mesoPendN = 0; this.mesoPendT = 0; this.mesoLowT = 0; this.mesoLowN = 0; this.mesoTotal = 0; this.mesoSec = 0;
     this.mesoHist = []; this.mesoHistT = 0; this.mesoLastTick = 0; this.mesoWasIdle = false; this.mesoOpen = false; this.mesoStats = null;
     // lvl/exp：最近一次「可信」的讀數；total：從開始追蹤累積的經驗增量（不依賴等級經驗表，升等時才不會算錯）
     this.lvl = -1; this.exp = 0; this.total = 0; this.rejects = 0; this.maxStep = 0; this.lv0 = -1; this.startWall = 0; this.mapSec = {};
@@ -1033,7 +1033,7 @@ class Tracker {
     }
     if (this.mesoBase !== null) {
       this.mesoHist = this.mesoHist.map(([t, e]) => [t + d, e]); this.mesoHistT += d; this.mesoLastTick = 0;
-      this.mesoPend = null; this.mesoPendN = 0; this.mesoRebase = true;
+      this.mesoPend = null; this.mesoPendN = 0; this.mesoLowT = 0; this.mesoLowN = 0; this.mesoRebase = true;
     }
     if (typeof renderStats === 'function') renderStats();
     this.onChange();
@@ -1057,8 +1057,17 @@ class Tracker {
       if (this.mesoBase === null) {                         // 第一次讀到：當作基準
         this.mesoBase = value; this.mesoHist = [[now, 0]]; this.mesoHistT = now; this.mesoLastTick = now;
       } else if (this.mesoRebase) {                        // 剛從暫停繼續：重設基準，不計入暫停期間的收入
-        this.mesoBase = value; this.mesoRebase = false; this.mesoPend = null; this.mesoPendN = 0;
+        this.mesoBase = value; this.mesoRebase = false; this.mesoPend = null; this.mesoPendN = 0; this.mesoLowT = 0; this.mesoLowN = 0;
+      } else if (value < this.mesoBase) {
+        // 低於基準（買東西、丟楓幣，或之前讀大了）：邊打怪邊撿楓幣時數字一直在變，不可能「同一個數字不動 3 秒」，
+        // 所以改成「連續 MESO_DOWN_SEC 秒、至少 5 次讀數都低於基準」就把基準重設成目前的值（不算收入）。
+        // 舊寫法要求同一個數字不變，花錢後一直撿錢就永遠換不了基準 → 之後賺的錢都不計入，浮窗十分鐘楓幣會一直是 0
+        if (!this.mesoLowT) { this.mesoLowT = now; this.mesoLowN = 0; }
+        this.mesoLowN++;
+        this.mesoPend = null; this.mesoPendN = 0;
+        if (now - this.mesoLowT >= MESO_DOWN_SEC && this.mesoLowN >= 5) { this.mesoBase = value; this.mesoLowT = 0; this.mesoLowN = 0; }
       } else if (value !== this.mesoBase) {
+        this.mesoLowT = 0; this.mesoLowN = 0;
         if (this.mesoPend === value) this.mesoPendN++; else { this.mesoPend = value; this.mesoPendN = 1; this.mesoPendT = now; }
         const up = value > this.mesoBase, big = up && value - this.mesoBase > MESO_BIG;
         const ok = up ? (big ? now - this.mesoPendT >= MESO_BIG_SEC && this.mesoPendN >= 5 : this.mesoPendN >= 2)
@@ -1067,7 +1076,7 @@ class Tracker {
           if (up) this.mesoTotal += value - this.mesoBase;   // 只算增加；買東西等花費不扣
           this.mesoBase = value; this.mesoPend = null; this.mesoPendN = 0;
         }
-      } else { this.mesoPend = null; this.mesoPendN = 0; }
+      } else { this.mesoPend = null; this.mesoPendN = 0; this.mesoLowT = 0; this.mesoLowN = 0; }
     }
     this.computeMeso(now, idleSec);
     if (typeof renderStats === 'function') renderStats();
